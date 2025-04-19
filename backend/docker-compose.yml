@@ -1,0 +1,15 @@
+services:
+  skillmap-postgres:
+    image: postgres:15
+    container_name: skillmap-postgres
+    environment:
+      POSTGRES_DB: skillmap
+      POSTGRES_USER: skillmap_user
+      POSTGRES_PASSWORD: skillmap_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data: 
