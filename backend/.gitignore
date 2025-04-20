@@ -47,4 +47,4 @@ bin/
 ### Custom
 .idea/
 .vscode/
-repomix-output.xml
+repomix-*.xml
