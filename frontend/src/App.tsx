@@ -1,35 +1,55 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { Toaster } from "@/components/ui/Toaster";
+import { AppShell } from "@/components/layout/AppShell";
+
+// Pages
+import { Dashboard } from "@/pages/Dashboard";
+import { EmployeeList } from "@/pages/employees/EmployeeList";
+import { EmployeeDetail } from "@/pages/employees/EmployeeDetail";
+import { ProjectList } from "@/pages/projects/ProjectList";
+import { ProjectDetail } from "@/pages/projects/ProjectDetail";
+import { SkillList } from "@/pages/skills/SkillList";
+import { AssignmentList } from "@/pages/assignments/AssignmentList";
+import { NotFound } from "@/pages/NotFound";
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<AppShell />}>
+          <Route index element={<Dashboard />} />
+          
+          {/* Employee routes */}
+          <Route path="employees">
+            <Route index element={<EmployeeList />} />
+            <Route path="new" element={<EmployeeDetail />} />
+            <Route path=":id" element={<EmployeeDetail />} />
+          </Route>
+          
+          {/* Project routes */}
+          <Route path="projects">
+            <Route index element={<ProjectList />} />
+            <Route path="new" element={<ProjectDetail />} />
+            <Route path=":id" element={<ProjectDetail />} />
+          </Route>
+          
+          {/* Skill routes */}
+          <Route path="skills">
+            <Route index element={<SkillList />} />
+          </Route>
+          
+          {/* Assignment routes */}
+          <Route path="assignments">
+            <Route index element={<AssignmentList />} />
+          </Route>
+          
+          {/* Not found */}
+          <Route path="*" element={<NotFound />} />
+        </Route>
+      </Routes>
+      <Toaster />
+    </BrowserRouter>
+  );
 }
 
-export default App
+export default App;
