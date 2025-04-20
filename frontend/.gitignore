@@ -17,3 +17,4 @@ temp
 TODOs.md
 .eslintcache
 repomix-*.xml
+.vite/
