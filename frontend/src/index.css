@@ -118,3 +118,11 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Add back pointer cursor when hovering over buttons (See https://github.com/shadcn-ui/ui/issues/6843) */
+@layer base {
+  button:not([disabled]),
+  [role="button"]:not([disabled]) {
+    cursor: pointer;
+  }
+}

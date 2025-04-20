@@ -34,9 +34,10 @@ const employeeSchema = z.object({
 export function EmployeeDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const isNewEmployee = id === "new";
-  const [loading, setLoading] = useState(!isNewEmployee);
+  const isNewEmployee = id === "new" || id === undefined;
+  const [loading, setLoading] = useState(false);
   const [employeeSkills, setEmployeeSkills] = useState<EmployeeSkill[]>([]);
+  const [pendingSkills, setPendingSkills] = useState<{skillId: number, skillName: string, proficiencyLevel: number}[]>([]);
   const [availableSkills, setAvailableSkills] = useState<Skill[]>([]);
   const [selectedSkill, setSelectedSkill] = useState<string>("");
   const [proficiencyLevel, setProficiencyLevel] = useState<string>("3");
@@ -58,7 +59,7 @@ export function EmployeeDetail() {
     },
   });
 
-  // Fetch employee data when component mounts
+  // Fetch skill and employee data when component mounts
   useEffect(() => {
     async function fetchSkills() {
       try {
@@ -74,10 +75,10 @@ export function EmployeeDetail() {
       }
     }
 
-    async function fetchEmployeeData() {
+    async function fetchEmployeeData(employeeId: number) {
       try {
         setLoading(true);
-        const employee = await EmployeeApi.getById(parseInt(id!));
+        const employee = await EmployeeApi.getById(employeeId);
         reset({
           firstName: employee.firstName,
           lastName: employee.lastName,
@@ -86,8 +87,7 @@ export function EmployeeDetail() {
           department: employee.department || "",
         });
 
-        // Fetch employee skills
-        const skills = await EmployeeSkillApi.getByEmployeeId(parseInt(id!));
+        const skills = await EmployeeSkillApi.getByEmployeeId(employeeId);
         setEmployeeSkills(skills);
       } catch (error) {
         console.error("Error fetching employee:", error);
@@ -103,10 +103,19 @@ export function EmployeeDetail() {
     }
 
     fetchSkills();
-    if (!isNewEmployee) {
-      fetchEmployeeData();
+
+    if (id === undefined) {
+      return;
     }
-  }, [id, isNewEmployee, reset, navigate]);
+
+    if (!isNewEmployee) {
+      fetchEmployeeData(parseInt(id));
+    } else {
+      // Reset skills for new employee
+      setEmployeeSkills([]);
+      setPendingSkills([]);
+    }
+  }, [id, reset, navigate]);
 
   // Handle form submission
   const onSubmit = async (data: z.infer<typeof employeeSchema>) => {
@@ -123,9 +132,20 @@ export function EmployeeDetail() {
         };
         const newEmployee = await EmployeeApi.create(createDto);
         employeeId = newEmployee.id!;
+        
+        // Add all pending skills to the newly created employee
+        for (const skill of pendingSkills) {
+          const skillToAdd: EmployeeSkillCreateDto = {
+            employeeId: employeeId,
+            skillId: skill.skillId,
+            proficiencyLevel: skill.proficiencyLevel,
+          };
+          await EmployeeSkillApi.create(skillToAdd);
+        }
+        
         toast({
           title: "Success",
-          description: "Employee created successfully",
+          description: "Employee created successfully with skills",
         });
       } else {
         employeeId = parseInt(id!);
@@ -143,7 +163,7 @@ export function EmployeeDetail() {
         });
       }
 
-      navigate(`/employees/${employeeId}`);
+      navigate("/employees");
     } catch (error) {
       console.error("Error saving employee:", error);
       toast({
@@ -155,39 +175,74 @@ export function EmployeeDetail() {
   };
 
   const handleAddSkill = async () => {
-    if (!selectedSkill || !id || id === "new") return;
-
+    if (!selectedSkill) return;
+    
     try {
       const skillId = parseInt(selectedSkill);
-      const employeeId = parseInt(id);
       
-      // Check if this skill is already assigned to employee
-      if (employeeSkills.some(skill => skill.skillId === skillId)) {
+      // For existing employee
+      if (!isNewEmployee && id) {
+        const employeeId = parseInt(id);
+        
+        // Check if this skill is already assigned to employee
+        if (employeeSkills.some(skill => skill.skillId === skillId)) {
+          toast({
+            title: "Error",
+            description: "This skill is already assigned to this employee",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        const skillToAdd: EmployeeSkillCreateDto = {
+          employeeId: employeeId,
+          skillId: skillId,
+          proficiencyLevel: parseInt(proficiencyLevel),
+        };
+
+        const newSkill = await EmployeeSkillApi.create(skillToAdd);
+        setEmployeeSkills([...employeeSkills, newSkill]);
+        
         toast({
-          title: "Error",
-          description: "This skill is already assigned to this employee",
-          variant: "destructive",
+          title: "Success",
+          description: "Skill added successfully",
         });
-        return;
+      } 
+      // For new employee
+      else {
+        // Check if skill is already in pending list
+        if (pendingSkills.some(skill => skill.skillId === skillId)) {
+          toast({
+            title: "Error",
+            description: "This skill is already in the list",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        // Find skill name from availableSkills
+        const skillName = availableSkills.find(s => s.id === skillId)?.name || "Unknown Skill";
+        
+        // Add to pending skills
+        setPendingSkills([
+          ...pendingSkills, 
+          {
+            skillId,
+            skillName,
+            proficiencyLevel: parseInt(proficiencyLevel)
+          }
+        ]);
+        
+        toast({
+          title: "Success",
+          description: "Skill added to list",
+        });
       }
-
-      const skillToAdd: EmployeeSkillCreateDto = {
-        employeeId: employeeId,
-        skillId: skillId,
-        proficiencyLevel: parseInt(proficiencyLevel),
-      };
-
-      const newSkill = await EmployeeSkillApi.create(skillToAdd);
-      setEmployeeSkills([...employeeSkills, newSkill]);
       
       // Reset form fields
       setSelectedSkill("");
       setProficiencyLevel("3");
       
-      toast({
-        title: "Success",
-        description: "Skill added successfully",
-      });
     } catch (error) {
       console.error("Error adding skill:", error);
       toast({
@@ -198,10 +253,18 @@ export function EmployeeDetail() {
     }
   };
 
-  const handleRemoveSkill = async (skillId: number) => {
+  const handleRemoveSkill = async (index: number, isExistingSkill: boolean) => {
     try {
-      await EmployeeSkillApi.delete(skillId);
-      setEmployeeSkills(employeeSkills.filter(skill => skill.id !== skillId));
+      if (isExistingSkill) {
+        // Handle existing skill
+        const skillId = employeeSkills[index].id!;
+        await EmployeeSkillApi.delete(skillId);
+        setEmployeeSkills(employeeSkills.filter(skill => skill.id !== skillId));
+      } else {
+        // Handle pending skill
+        setPendingSkills(pendingSkills.filter((_, i) => i !== index));
+      }
+      
       toast({
         title: "Success",
         description: "Skill removed successfully",
@@ -237,7 +300,7 @@ export function EmployeeDetail() {
             </Button>
             <Button type="submit" form="employee-form">
               <Save className="mr-2 h-4 w-4" />
-              Save
+              {isNewEmployee ? "Add Employee" : "Save"}
             </Button>
           </div>
         }
@@ -246,12 +309,12 @@ export function EmployeeDetail() {
       <Tabs defaultValue="details">
         <TabsList>
           <TabsTrigger value="details">Details</TabsTrigger>
-          {!isNewEmployee && <TabsTrigger value="skills">Skills</TabsTrigger>}
+          <TabsTrigger value="skills">Skills</TabsTrigger>
         </TabsList>
         <TabsContent value="details">
           <Card>
             <CardHeader>
-              <CardTitle>Employee Information</CardTitle>
+              <CardTitle>{isNewEmployee ? "Add Employee Information" : "Edit Employee Information"}</CardTitle>
             </CardHeader>
             <CardContent>
               <form id="employee-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -305,78 +368,78 @@ export function EmployeeDetail() {
             </CardContent>
           </Card>
         </TabsContent>
-        {!isNewEmployee && (
-          <TabsContent value="skills">
-            <Card>
-              <CardHeader>
-                <CardTitle>Employee Skills</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-col md:flex-row gap-4 mb-6">
-                  <div className="flex-1 space-y-2">
-                    <Label htmlFor="skill">Skill</Label>
-                    <Select value={selectedSkill} onValueChange={setSelectedSkill}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a skill" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableSkills.map((skill) => (
-                          <SelectItem key={skill.id} value={skill.id!.toString()}>
-                            {skill.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="w-32 space-y-2">
-                    <Label htmlFor="proficiency">Proficiency (1-5)</Label>
-                    <Select value={proficiencyLevel} onValueChange={setProficiencyLevel}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Level" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1">1 - Beginner</SelectItem>
-                        <SelectItem value="2">2 - Basic</SelectItem>
-                        <SelectItem value="3">3 - Intermediate</SelectItem>
-                        <SelectItem value="4">4 - Advanced</SelectItem>
-                        <SelectItem value="5">5 - Expert</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex items-end">
-                    <Button onClick={handleAddSkill} className="w-full md:w-auto">
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add Skill
-                    </Button>
-                  </div>
+        <TabsContent value="skills">
+          <Card>
+            <CardHeader>
+              <CardTitle>Employee Skills</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col md:flex-row gap-4 mb-6">
+                <div className="flex-1 space-y-2">
+                  <Label htmlFor="skill">Skill</Label>
+                  <Select value={selectedSkill} onValueChange={setSelectedSkill}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a skill" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableSkills.map((skill) => (
+                        <SelectItem key={skill.id} value={skill.id!.toString()}>
+                          {skill.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
+                <div className="w-32 space-y-2">
+                  <Label htmlFor="proficiency">Proficiency (1-5)</Label>
+                  <Select value={proficiencyLevel} onValueChange={setProficiencyLevel}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Level" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1 - Beginner</SelectItem>
+                      <SelectItem value="2">2 - Basic</SelectItem>
+                      <SelectItem value="3">3 - Intermediate</SelectItem>
+                      <SelectItem value="4">4 - Advanced</SelectItem>
+                      <SelectItem value="5">5 - Expert</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-end">
+                  <Button onClick={handleAddSkill} className="w-full md:w-auto">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Skill
+                  </Button>
+                </div>
+              </div>
 
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Skill</TableHead>
-                        <TableHead>Proficiency Level</TableHead>
-                        <TableHead className="w-24">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {employeeSkills.length === 0 ? (
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Skill</TableHead>
+                      <TableHead>Proficiency Level</TableHead>
+                      <TableHead className="w-24">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {isNewEmployee ? (
+                      pendingSkills.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={3} className="h-24 text-center">
                             No skills added yet.
                           </TableCell>
                         </TableRow>
                       ) : (
-                        employeeSkills.map((skill) => (
-                          <TableRow key={skill.id}>
+                        pendingSkills.map((skill, index) => (
+                          <TableRow key={index}>
                             <TableCell>{skill.skillName}</TableCell>
                             <TableCell>{skill.proficiencyLevel}</TableCell>
                             <TableCell>
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => handleRemoveSkill(skill.id!)}
+                                onClick={() => handleRemoveSkill(index, false)}
                               >
                                 <Trash className="h-4 w-4 text-destructive" />
                                 <span className="sr-only">Remove</span>
@@ -384,14 +447,39 @@ export function EmployeeDetail() {
                             </TableCell>
                           </TableRow>
                         ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        )}
+                      )
+                    ) : (
+                      employeeSkills.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={3} className="h-24 text-center">
+                            No skills added yet.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        employeeSkills.map((skill, index) => (
+                          <TableRow key={skill.id}>
+                            <TableCell>{skill.skillName}</TableCell>
+                            <TableCell>{skill.proficiencyLevel}</TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRemoveSkill(index, true)}
+                              >
+                                <Trash className="h-4 w-4 text-destructive" />
+                                <span className="sr-only">Remove</span>
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
     </div>
   );

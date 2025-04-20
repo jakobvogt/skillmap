@@ -44,9 +44,10 @@ const statusOptions = [
 export function ProjectDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const isNewProject = id === "new";
+  const isNewProject = id === "new" || id === undefined;
   const [loading, setLoading] = useState(!isNewProject);
   const [projectSkills, setProjectSkills] = useState<ProjectSkill[]>([]);
+  const [pendingSkills, setPendingSkills] = useState<{skillId: number, skillName: string, importance: number, minimumProficiencyRequired: number, numberOfPeopleRequired: number}[]>([]);
   const [availableSkills, setAvailableSkills] = useState<Skill[]>([]);
   const [selectedSkill, setSelectedSkill] = useState<string>("");
   const [importance, setImportance] = useState<string>("3");
@@ -120,6 +121,10 @@ export function ProjectDetail() {
     fetchSkills();
     if (!isNewProject) {
       fetchProjectData();
+    } else {
+      // Reset skills for new project
+      setProjectSkills([]);
+      setPendingSkills([]);
     }
   }, [id, isNewProject, reset, navigate]);
 
@@ -141,9 +146,22 @@ export function ProjectDetail() {
         const createDto: ProjectCreateDto = projectData;
         const newProject = await ProjectApi.create(createDto);
         projectId = newProject.id!;
+        
+        // Add all pending skills to the newly created project
+        for (const skill of pendingSkills) {
+          const skillToAdd: ProjectSkillCreateDto = {
+            projectId: projectId,
+            skillId: skill.skillId,
+            importance: skill.importance,
+            minimumProficiencyRequired: skill.minimumProficiencyRequired,
+            numberOfPeopleRequired: skill.numberOfPeopleRequired,
+          };
+          await ProjectSkillApi.create(skillToAdd);
+        }
+        
         toast({
           title: "Success",
-          description: "Project created successfully",
+          description: "Project created successfully with skill requirements",
         });
       } else {
         projectId = parseInt(id!);
@@ -155,7 +173,8 @@ export function ProjectDetail() {
         });
       }
 
-      navigate(`/projects/${projectId}`);
+      // Navigate back to project list
+      navigate("/projects");
     } catch (error) {
       console.error("Error saving project:", error);
       toast({
@@ -167,32 +186,73 @@ export function ProjectDetail() {
   };
 
   const handleAddSkill = async () => {
-    if (!selectedSkill || !id || id === "new") return;
+    if (!selectedSkill) return;
 
     try {
       const skillId = parseInt(selectedSkill);
-      const projectId = parseInt(id);
       
-      // Check if this skill is already assigned to project
-      if (projectSkills.some(skill => skill.skillId === skillId)) {
+      // For existing project
+      if (!isNewProject && id) {
+        const projectId = parseInt(id);
+        
+        // Check if this skill is already assigned to project
+        if (projectSkills.some(skill => skill.skillId === skillId)) {
+          toast({
+            title: "Error",
+            description: "This skill is already assigned to this project",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        const skillToAdd: ProjectSkillCreateDto = {
+          projectId: projectId,
+          skillId: skillId,
+          importance: parseInt(importance),
+          minimumProficiencyRequired: parseInt(minProficiency),
+          numberOfPeopleRequired: parseInt(peopleRequired),
+        };
+
+        const newSkill = await ProjectSkillApi.create(skillToAdd);
+        setProjectSkills([...projectSkills, newSkill]);
+        
         toast({
-          title: "Error",
-          description: "This skill is already assigned to this project",
-          variant: "destructive",
+          title: "Success",
+          description: "Skill requirement added successfully",
         });
-        return;
+      } 
+      // For new project
+      else {
+        // Check if skill is already in pending list
+        if (pendingSkills.some(skill => skill.skillId === skillId)) {
+          toast({
+            title: "Error",
+            description: "This skill is already in the list",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        // Find skill name from availableSkills
+        const skillName = availableSkills.find(s => s.id === skillId)?.name || "Unknown Skill";
+        
+        // Add to pending skills
+        setPendingSkills([
+          ...pendingSkills, 
+          {
+            skillId,
+            skillName,
+            importance: parseInt(importance),
+            minimumProficiencyRequired: parseInt(minProficiency),
+            numberOfPeopleRequired: parseInt(peopleRequired)
+          }
+        ]);
+        
+        toast({
+          title: "Success",
+          description: "Skill requirement added to list",
+        });
       }
-
-      const skillToAdd: ProjectSkillCreateDto = {
-        projectId: projectId,
-        skillId: skillId,
-        importance: parseInt(importance),
-        minimumProficiencyRequired: parseInt(minProficiency),
-        numberOfPeopleRequired: parseInt(peopleRequired),
-      };
-
-      const newSkill = await ProjectSkillApi.create(skillToAdd);
-      setProjectSkills([...projectSkills, newSkill]);
       
       // Reset form fields
       setSelectedSkill("");
@@ -200,10 +260,6 @@ export function ProjectDetail() {
       setMinProficiency("2");
       setPeopleRequired("1");
       
-      toast({
-        title: "Success",
-        description: "Skill requirement added successfully",
-      });
     } catch (error) {
       console.error("Error adding skill:", error);
       toast({
@@ -214,10 +270,18 @@ export function ProjectDetail() {
     }
   };
 
-  const handleRemoveSkill = async (skillId: number) => {
+  const handleRemoveSkill = async (index: number, isExistingSkill: boolean) => {
     try {
-      await ProjectSkillApi.delete(skillId);
-      setProjectSkills(projectSkills.filter(skill => skill.id !== skillId));
+      if (isExistingSkill) {
+        // Handle existing skill
+        const skillId = projectSkills[index].id!;
+        await ProjectSkillApi.delete(skillId);
+        setProjectSkills(projectSkills.filter(skill => skill.id !== skillId));
+      } else {
+        // Handle pending skill
+        setPendingSkills(pendingSkills.filter((_, i) => i !== index));
+      }
+      
       toast({
         title: "Success",
         description: "Skill requirement removed successfully",
@@ -262,7 +326,7 @@ export function ProjectDetail() {
       <Tabs defaultValue="details">
         <TabsList>
           <TabsTrigger value="details">Details</TabsTrigger>
-          {!isNewProject && <TabsTrigger value="skills">Required Skills</TabsTrigger>}
+          <TabsTrigger value="skills">Required Skills</TabsTrigger>
         </TabsList>
         <TabsContent value="details">
           <Card>
@@ -345,100 +409,127 @@ export function ProjectDetail() {
           </Card>
         </TabsContent>
         
-        {!isNewProject && (
-          <TabsContent value="skills">
-            <Card>
-              <CardHeader>
-                <CardTitle>Required Skills</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="skill">Skill</Label>
-                    <Select value={selectedSkill} onValueChange={setSelectedSkill}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a skill" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableSkills.map((skill) => (
-                          <SelectItem key={skill.id} value={skill.id!.toString()}>
-                            {skill.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="importance">Importance (1-5)</Label>
-                    <Select value={importance} onValueChange={setImportance}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Level" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1">1 - Nice to have</SelectItem>
-                        <SelectItem value="2">2 - Helpful</SelectItem>
-                        <SelectItem value="3">3 - Important</SelectItem>
-                        <SelectItem value="4">4 - Very important</SelectItem>
-                        <SelectItem value="5">5 - Critical</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="minLevel">Min. Proficiency (1-5)</Label>
-                    <Select value={minProficiency} onValueChange={setMinProficiency}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Level" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1">1 - Beginner</SelectItem>
-                        <SelectItem value="2">2 - Basic</SelectItem>
-                        <SelectItem value="3">3 - Intermediate</SelectItem>
-                        <SelectItem value="4">4 - Advanced</SelectItem>
-                        <SelectItem value="5">5 - Expert</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+        <TabsContent value="skills">
+          <Card>
+            <CardHeader>
+              <CardTitle>Required Skills</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="skill">Skill</Label>
+                  <Select value={selectedSkill} onValueChange={setSelectedSkill}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a skill" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableSkills.map((skill) => (
+                        <SelectItem key={skill.id} value={skill.id!.toString()}>
+                          {skill.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="peopleRequired">Number of People Required</Label>
-                    <Input
-                      id="peopleRequired"
-                      type="number"
-                      min="1"
-                      value={peopleRequired}
-                      onChange={(e) => setPeopleRequired(e.target.value)}
-                    />
-                  </div>
-                  <div className="flex items-end md:col-span-2">
-                    <Button onClick={handleAddSkill} className="w-full">
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add Skill Requirement
-                    </Button>
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="importance">Importance (1-5)</Label>
+                  <Select value={importance} onValueChange={setImportance}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Level" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1 - Nice to have</SelectItem>
+                      <SelectItem value="2">2 - Helpful</SelectItem>
+                      <SelectItem value="3">3 - Important</SelectItem>
+                      <SelectItem value="4">4 - Very important</SelectItem>
+                      <SelectItem value="5">5 - Critical</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="minLevel">Min. Proficiency (1-5)</Label>
+                  <Select value={minProficiency} onValueChange={setMinProficiency}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Level" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1 - Beginner</SelectItem>
+                      <SelectItem value="2">2 - Basic</SelectItem>
+                      <SelectItem value="3">3 - Intermediate</SelectItem>
+                      <SelectItem value="4">4 - Advanced</SelectItem>
+                      <SelectItem value="5">5 - Expert</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="peopleRequired">Number of People Required</Label>
+                  <Input
+                    id="peopleRequired"
+                    type="number"
+                    min="1"
+                    value={peopleRequired}
+                    onChange={(e) => setPeopleRequired(e.target.value)}
+                  />
+                </div>
+                <div className="flex items-end md:col-span-2">
+                  <Button onClick={handleAddSkill} className="w-full">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Skill Requirement
+                  </Button>
+                </div>
+              </div>
 
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Skill</TableHead>
-                        <TableHead>Importance</TableHead>
-                        <TableHead>Min. Proficiency</TableHead>
-                        <TableHead>People Required</TableHead>
-                        <TableHead className="w-24">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {projectSkills.length === 0 ? (
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Skill</TableHead>
+                      <TableHead>Importance</TableHead>
+                      <TableHead>Min. Proficiency</TableHead>
+                      <TableHead>People Required</TableHead>
+                      <TableHead className="w-24">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {isNewProject ? (
+                      pendingSkills.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={5} className="h-24 text-center">
                             No skill requirements added yet.
                           </TableCell>
                         </TableRow>
                       ) : (
-                        projectSkills.map((skill) => (
+                        pendingSkills.map((skill, index) => (
+                          <TableRow key={index}>
+                            <TableCell>{skill.skillName}</TableCell>
+                            <TableCell>{skill.importance}</TableCell>
+                            <TableCell>{skill.minimumProficiencyRequired}</TableCell>
+                            <TableCell>{skill.numberOfPeopleRequired}</TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRemoveSkill(index, false)}
+                              >
+                                <Trash className="h-4 w-4 text-destructive" />
+                                <span className="sr-only">Remove</span>
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )
+                    ) : (
+                      projectSkills.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="h-24 text-center">
+                            No skill requirements added yet.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        projectSkills.map((skill, index) => (
                           <TableRow key={skill.id}>
                             <TableCell>{skill.skillName}</TableCell>
                             <TableCell>{skill.importance}</TableCell>
@@ -448,7 +539,7 @@ export function ProjectDetail() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => handleRemoveSkill(skill.id!)}
+                                onClick={() => handleRemoveSkill(index, true)}
                               >
                                 <Trash className="h-4 w-4 text-destructive" />
                                 <span className="sr-only">Remove</span>
@@ -456,14 +547,14 @@ export function ProjectDetail() {
                             </TableCell>
                           </TableRow>
                         ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        )}
+                      )
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
     </div>
   );
