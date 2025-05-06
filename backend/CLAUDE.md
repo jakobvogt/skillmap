@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Claude Code Notes
+
+When committing changes, please use simple and concise commit messages without the "Generated with Claude Code" tag or Co-Authored-By lines.
+
 ## Project Overview
 
 This is the backend for a Skillmap application, a Spring Boot project written in Kotlin. The application manages employees, skills, projects, and their relationships, helping to track and allocate people with the right skills to appropriate projects.
