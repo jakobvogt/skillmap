@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, Link } from "react-router-dom";
 import { ColumnDef } from "@tanstack/react-table";
-import { MoreHorizontal, Plus, Trash, RefreshCw } from "lucide-react";
+import { MoreHorizontal, Plus, Trash, RefreshCw, LayoutGrid } from "lucide-react";
 import { format } from "date-fns";
 import { 
   ProjectAssignment, 
@@ -371,6 +371,12 @@ export function AssignmentList() {
             <Button variant="outline" onClick={handleAutoMatch}>
               <RefreshCw className="mr-2 h-4 w-4" />
               Auto Match
+            </Button>
+            <Button variant="outline" asChild>
+              <Link to="/assignments/dashboard">
+                <LayoutGrid className="mr-2 h-4 w-4" />
+                Dashboard View
+              </Link>
             </Button>
             <Button onClick={handleOpenDialog}>
               <Plus className="mr-2 h-4 w-4" />

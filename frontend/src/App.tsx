@@ -10,6 +10,7 @@ import { ProjectList } from "@/pages/projects/ProjectList";
 import { ProjectDetail } from "@/pages/projects/ProjectDetail";
 import { SkillList } from "@/pages/skills/SkillList";
 import { AssignmentList } from "@/pages/assignments/AssignmentList";
+import { AssignmentDashboard } from "@/pages/assignments/AssignmentDashboard";
 import { NotFound } from "@/pages/NotFound";
 
 function App() {
@@ -41,6 +42,7 @@ function App() {
           {/* Assignment routes */}
           <Route path="assignments">
             <Route index element={<AssignmentList />} />
+            <Route path="dashboard" element={<AssignmentDashboard />} />
           </Route>
           
           {/* Not found */}
