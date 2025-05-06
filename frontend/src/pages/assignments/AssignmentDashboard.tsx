@@ -43,6 +43,8 @@ export function AssignmentDashboard() {
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [currentAssignmentId, setCurrentAssignmentId] = useState<number | null>(null);
 
   // State for cell operations
   const [draggedEmployee, setDraggedEmployee] = useState<Employee | null>(null);
@@ -153,9 +155,33 @@ export function AssignmentDashboard() {
   };
 
   const handleCreateAssignment = async (projectId: number, employeeId: number) => {
-    // Open the dialog with pre-selected values
-    setSelectedProjectId(projectId.toString());
-    setSelectedEmployeeId(employeeId.toString());
+    // Check if assignment already exists
+    const existingAssignment = getAssignment(projectId, employeeId);
+    
+    if (existingAssignment) {
+      // If assignment exists, open in edit mode
+      setIsEditing(true);
+      setCurrentAssignmentId(existingAssignment.id!);
+      setSelectedProjectId(projectId.toString());
+      setSelectedEmployeeId(employeeId.toString());
+      setRole(existingAssignment.role || "");
+      setAllocationPercentage(existingAssignment.allocationPercentage.toString());
+      setStartDate(existingAssignment.startDate || "");
+      setEndDate(existingAssignment.endDate || "");
+      setNotes(existingAssignment.notes || "");
+    } else {
+      // Otherwise, open in create mode
+      setIsEditing(false);
+      setCurrentAssignmentId(null);
+      setSelectedProjectId(projectId.toString());
+      setSelectedEmployeeId(employeeId.toString());
+      setRole("");
+      setAllocationPercentage("100");
+      setStartDate("");
+      setEndDate("");
+      setNotes("");
+    }
+    
     setDialogOpen(true);
   };
 
@@ -185,6 +211,8 @@ export function AssignmentDashboard() {
     setStartDate("");
     setEndDate("");
     setNotes("");
+    setIsEditing(false);
+    setCurrentAssignmentId(null);
   };
 
   const handleCloseDialog = () => {
@@ -204,48 +232,77 @@ export function AssignmentDashboard() {
         return;
       }
 
-      // Check if employee is already assigned to this project
-      const existingAssignment = assignments.find(
-        (a) => a.projectId === parseInt(selectedProjectId) && a.employeeId === parseInt(selectedEmployeeId)
-      );
+      if (isEditing && currentAssignmentId) {
+        // Update existing assignment
+        const assignmentUpdateData = {
+          role: role || undefined,
+          allocationPercentage: parseInt(allocationPercentage) || 100,
+          startDate: startDate || undefined,
+          endDate: endDate || undefined,
+          isAutomaticallyAssigned: false,
+          notes: notes || undefined,
+        };
 
-      if (existingAssignment) {
+        const updatedAssignment = await ProjectAssignmentApi.update(
+          currentAssignmentId, 
+          assignmentUpdateData
+        );
+        
+        // Update assignments array
+        setAssignments(
+          assignments.map(assignment => 
+            assignment.id === currentAssignmentId ? updatedAssignment : assignment
+          )
+        );
+        
         toast({
-          title: "Validation Error",
-          description: "This employee is already assigned to this project",
-          variant: "destructive",
+          title: "Success",
+          description: "Assignment updated successfully",
         });
-        return;
+      } else {
+        // Check if employee is already assigned to this project
+        const existingAssignment = assignments.find(
+          (a) => a.projectId === parseInt(selectedProjectId) && a.employeeId === parseInt(selectedEmployeeId)
+        );
+
+        if (existingAssignment) {
+          toast({
+            title: "Validation Error",
+            description: "This employee is already assigned to this project",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Create new assignment
+        const assignmentData: ProjectAssignmentCreateDto = {
+          projectId: parseInt(selectedProjectId),
+          employeeId: parseInt(selectedEmployeeId),
+          role: role || undefined,
+          allocationPercentage: parseInt(allocationPercentage) || 100,
+          startDate: startDate || undefined,
+          endDate: endDate || undefined,
+          isAutomaticallyAssigned: false,
+          notes: notes || undefined,
+        };
+
+        const newAssignment = await ProjectAssignmentApi.create(assignmentData);
+        
+        // Update assignments
+        setAssignments([...assignments, newAssignment]);
+        
+        toast({
+          title: "Success",
+          description: "Assignment created successfully",
+        });
       }
-
-      // Create assignment
-      const assignmentData: ProjectAssignmentCreateDto = {
-        projectId: parseInt(selectedProjectId),
-        employeeId: parseInt(selectedEmployeeId),
-        role: role || undefined,
-        allocationPercentage: parseInt(allocationPercentage) || 100,
-        startDate: startDate || undefined,
-        endDate: endDate || undefined,
-        isAutomaticallyAssigned: false,
-        notes: notes || undefined,
-      };
-
-      const newAssignment = await ProjectAssignmentApi.create(assignmentData);
-      
-      // Update assignments
-      setAssignments([...assignments, newAssignment]);
-      
-      toast({
-        title: "Success",
-        description: "Assignment created successfully",
-      });
       
       handleCloseDialog();
     } catch (error) {
-      console.error("Error creating assignment:", error);
+      console.error("Error with assignment:", error);
       toast({
         title: "Error",
-        description: "Failed to create assignment",
+        description: `Failed to ${isEditing ? "update" : "create"} assignment`,
         variant: "destructive",
       });
     }
@@ -475,6 +532,9 @@ export function AssignmentDashboard() {
                                     setStartDate(assignment.startDate || "");
                                     setEndDate(assignment.endDate || "");
                                     setNotes(assignment.notes || "");
+                                    // Explicitly call with editing mode
+                                    setIsEditing(true);
+                                    setCurrentAssignmentId(assignment.id!);
                                     setDialogOpen(true);
                                   }}
                                 >
@@ -517,9 +577,11 @@ export function AssignmentDashboard() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Manage Assignment</DialogTitle>
+            <DialogTitle>{isEditing ? "Edit" : "Create"} Assignment</DialogTitle>
             <DialogDescription>
-              Configure the assignment details for this employee and project.
+              {isEditing 
+                ? "Update the assignment details for this employee and project." 
+                : "Configure the assignment details for this employee and project."}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -614,7 +676,7 @@ export function AssignmentDashboard() {
               Cancel
             </Button>
             <Button onClick={handleSubmitAssignment}>
-              Save Assignment
+              {isEditing ? "Update" : "Create"} Assignment
             </Button>
           </DialogFooter>
         </DialogContent>
