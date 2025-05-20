@@ -7,7 +7,11 @@ import {
   ProjectApi, 
   Employee,
   EmployeeApi,
-  ProjectAssignmentCreateDto
+  ProjectAssignmentCreateDto,
+  ProjectSkill,
+  ProjectSkillApi,
+  EmployeeSkill,
+  EmployeeSkillApi
 } from "@/api";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -16,9 +20,13 @@ import { Label } from "@/components/ui/Label";
 import { toast } from "@/components/ui/useToast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/Dialog";
-import { Plus, ListFilter, Trash, Table2 } from "lucide-react";
+import { Plus, Trash, Table2 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/Select";
+import { TooltipProvider } from "@/components/ui/Tooltip";
+import { Tooltip } from "@/components/ui/Tooltip";
+import { ProjectSkillTooltip } from "@/components/ProjectSkillTooltip";
+import { EmployeeSkillTooltip } from "@/components/EmployeeSkillTooltip";
 
 export function AssignmentDashboard() {
   // State for data
@@ -26,6 +34,10 @@ export function AssignmentDashboard() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [assignments, setAssignments] = useState<ProjectAssignment[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // State for skills
+  const [projectSkillsMap, setProjectSkillsMap] = useState<Record<number, ProjectSkill[]>>({});
+  const [employeeSkillsMap, setEmployeeSkillsMap] = useState<Record<number, EmployeeSkill[]>>({});
   
   // State for filtering
   const [activeProjects, setActiveProjects] = useState<Project[]>([]);
@@ -61,6 +73,20 @@ export function AssignmentDashboard() {
       setLoading(false);
     });
   }, []);
+
+  useEffect(() => {
+    // Fetch project skills when projects are loaded
+    if (projects.length > 0) {
+      fetchAllProjectSkills();
+    }
+  }, [projects]);
+
+  useEffect(() => {
+    // Fetch employee skills when employees are loaded
+    if (employees.length > 0) {
+      fetchAllEmployeeSkills();
+    }
+  }, [employees]);
 
   useEffect(() => {
     // Filter projects based on search and status
@@ -151,6 +177,50 @@ export function AssignmentDashboard() {
         variant: "destructive",
       });
       return [];
+    }
+  };
+
+  const fetchAllProjectSkills = async () => {
+    try {
+      const skillsMap: Record<number, ProjectSkill[]> = {};
+      
+      for (const project of projects) {
+        if (project.id) {
+          const skills = await ProjectSkillApi.getByProjectId(project.id);
+          skillsMap[project.id] = skills;
+        }
+      }
+      
+      setProjectSkillsMap(skillsMap);
+    } catch (error) {
+      console.error("Error fetching project skills:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load project skills",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const fetchAllEmployeeSkills = async () => {
+    try {
+      const skillsMap: Record<number, EmployeeSkill[]> = {};
+      
+      for (const employee of employees) {
+        if (employee.id) {
+          const skills = await EmployeeSkillApi.getByEmployeeId(employee.id);
+          skillsMap[employee.id] = skills;
+        }
+      }
+      
+      setEmployeeSkillsMap(skillsMap);
+    } catch (error) {
+      console.error("Error fetching employee skills:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load employee skills",
+        variant: "destructive",
+      });
     }
   };
 
@@ -351,336 +421,386 @@ export function AssignmentDashboard() {
   };
 
   return (
-    <div className="container mx-auto">
-      <PageHeader
-        title="Assignment Dashboard"
-        description="View and manage assignments between employees and projects"
-        actions={
-          <div className="flex gap-2">
-            <Button variant="outline" asChild>
-              <Link to="/assignments">
-                <Table2 className="mr-2 h-4 w-4" />
-                List View
-              </Link>
-            </Button>
-            <Button onClick={() => setDialogOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              New Assignment
-            </Button>
-          </div>
-        }
-      />
+    <TooltipProvider>
+      <div className="container mx-auto">
+        <PageHeader
+          title="Assignment Dashboard"
+          description="View and manage assignments between employees and projects"
+          actions={
+            <div className="flex gap-2">
+              <Button variant="outline" asChild>
+                <Link to="/assignments">
+                  <Table2 className="mr-2 h-4 w-4" />
+                  List View
+                </Link>
+              </Button>
+              <Button onClick={() => setDialogOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                New Assignment
+              </Button>
+            </div>
+          }
+        />
 
-      {loading ? (
-        <div className="flex items-center justify-center h-64">
-          <p>Loading data...</p>
-        </div>
-      ) : (
-        <div className="mt-6">
-          {/* Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-            {/* Project filters */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Project Filters</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
+        {loading ? (
+          <div className="flex items-center justify-center h-64">
+            <p>Loading data...</p>
+          </div>
+        ) : (
+          <div className="mt-6">
+            {/* Filters */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+              {/* Project filters */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Project Filters</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="projectSearch">Search Projects</Label>
+                      <Input
+                        id="projectSearch"
+                        placeholder="Search by name..."
+                        value={searchProject}
+                        onChange={(e) => setSearchProject(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="statusFilter">Filter by Status</Label>
+                      <Select value={filterStatus} onValueChange={setFilterStatus}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="All Statuses" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Statuses</SelectItem>
+                          <SelectItem value="PLANNED">Planned</SelectItem>
+                          <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
+                          <SelectItem value="ON_HOLD">On Hold</SelectItem>
+                          <SelectItem value="COMPLETED">Completed</SelectItem>
+                          <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Employee filters */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Employee Filters</CardTitle>
+                </CardHeader>
+                <CardContent>
                   <div>
-                    <Label htmlFor="projectSearch">Search Projects</Label>
+                    <Label htmlFor="employeeSearch">Search Employees</Label>
                     <Input
-                      id="projectSearch"
-                      placeholder="Search by name..."
-                      value={searchProject}
-                      onChange={(e) => setSearchProject(e.target.value)}
+                      id="employeeSearch"
+                      placeholder="Search by name, position, or department..."
+                      value={searchEmployee}
+                      onChange={(e) => setSearchEmployee(e.target.value)}
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="statusFilter">Filter by Status</Label>
-                    <Select value={filterStatus} onValueChange={setFilterStatus}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="All Statuses" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Statuses</SelectItem>
-                        <SelectItem value="PLANNED">Planned</SelectItem>
-                        <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                        <SelectItem value="ON_HOLD">On Hold</SelectItem>
-                        <SelectItem value="COMPLETED">Completed</SelectItem>
-                        <SelectItem value="CANCELLED">Cancelled</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
 
-            {/* Employee filters */}
+            {/* Assignment Matrix */}
             <Card>
               <CardHeader>
-                <CardTitle>Employee Filters</CardTitle>
+                <CardTitle>Assignment Matrix</CardTitle>
+                <CardDescription>
+                  Drag employees to projects or projects to employees to create assignments.
+                  Click on an assignment cell to view details.
+                  Hover over a project or employee to see skill details.
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                <div>
-                  <Label htmlFor="employeeSearch">Search Employees</Label>
-                  <Input
-                    id="employeeSearch"
-                    placeholder="Search by name, position, or department..."
-                    value={searchEmployee}
-                    onChange={(e) => setSearchEmployee(e.target.value)}
-                  />
+                <div className="overflow-x-auto">
+                  <table className="min-w-full border-collapse">
+                    <thead>
+                      <tr>
+                        <th className="py-2 px-4 border bg-muted font-medium text-muted-foreground">
+                          Projects / Employees
+                        </th>
+                        {filteredEmployees.map((employee) => (
+                          <th 
+                            key={employee.id} 
+                            className="py-2 px-4 border bg-muted font-medium text-muted-foreground"
+                            draggable
+                            onDragStart={() => handleEmployeeDragStart(employee)}
+                            onDragEnd={handleDragEnd}
+                          >
+                            <Tooltip
+                              content={
+                                <EmployeeSkillTooltip 
+                                  skills={employeeSkillsMap[employee.id!] || []} 
+                                />
+                              }
+                              side="top"
+                              delayDuration={300}
+                            >
+                              <div className="flex flex-col items-center">
+                                <Link 
+                                  to={`/employees/${employee.id}`}
+                                  className="hover:underline hover:text-blue-600"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {employee.firstName} {employee.lastName}
+                                </Link>
+                                <span className="text-xs text-muted-foreground">{employee.position}</span>
+                              </div>
+                            </Tooltip>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {activeProjects.map((project) => (
+                        <tr key={project.id}>
+                          <td 
+                            className={`py-2 px-4 border font-medium ${
+                              project.status === "IN_PROGRESS" 
+                                ? "bg-blue-50" 
+                                : project.status === "COMPLETED" 
+                                  ? "bg-green-50" 
+                                  : project.status === "ON_HOLD" 
+                                    ? "bg-amber-50" 
+                                    : project.status === "CANCELLED" 
+                                      ? "bg-red-50" 
+                                      : "bg-slate-50"
+                            }`}
+                            draggable
+                            onDragStart={() => handleProjectDragStart(project)}
+                            onDragEnd={handleDragEnd}
+                          >
+                            <Tooltip
+                              content={
+                                <ProjectSkillTooltip 
+                                  skills={projectSkillsMap[project.id!] || []} 
+                                />
+                              }
+                              side="left"
+                              delayDuration={300}
+                            >
+                              <div className="flex flex-col">
+                                <Link 
+                                  to={`/projects/${project.id}`}
+                                  className="hover:underline hover:text-blue-600"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {project.name}
+                                </Link>
+                                <Badge 
+                                  variant={
+                                    project.status === "IN_PROGRESS" 
+                                      ? "default" 
+                                      : project.status === "COMPLETED" 
+                                        ? "success" 
+                                        : project.status === "ON_HOLD" 
+                                          ? "warning" 
+                                          : project.status === "CANCELLED" 
+                                            ? "destructive" 
+                                            : "outline"
+                                  }
+                                  className="mt-1 self-start"
+                                >
+                                  {project.status}
+                                </Badge>
+                              </div>
+                            </Tooltip>
+                          </td>
+                          {filteredEmployees.map((employee) => {
+                            const assignment = getAssignment(project.id!, employee.id!);
+                            const isHovered = hoveredCell && 
+                                             hoveredCell.projectId === project.id &&
+                                             hoveredCell.employeeId === employee.id;
+                            
+                            // Get the project skills and employee skills for the tooltip
+                            const projectSkills = projectSkillsMap[project.id!] || [];
+                            const employeeSkills = employeeSkillsMap[employee.id!] || [];
+                            
+                            return (
+                              <td 
+                                key={`${project.id}-${employee.id}`} 
+                                className={`py-2 px-4 border text-center ${
+                                  isHovered ? 'bg-blue-100' : assignment ? 'bg-green-50' : 'bg-white'
+                                }`}
+                                onDragOver={(e) => handleCellDragOver(project, employee, e)}
+                                onDrop={() => handleCellDrop(project, employee)}
+                              >
+                                {assignment ? (
+                                  <Tooltip
+                                    content={
+                                      <EmployeeSkillTooltip 
+                                        skills={employeeSkills} 
+                                        projectSkills={projectSkills}
+                                      />
+                                    }
+                                    side="right"
+                                    delayDuration={300}
+                                  >
+                                    <div 
+                                      className="flex flex-col items-center justify-center p-2 bg-white rounded border shadow-sm cursor-pointer"
+                                      onClick={() => {
+                                        setSelectedProjectId(project.id!.toString());
+                                        setSelectedEmployeeId(employee.id!.toString());
+                                        setRole(assignment.role || "");
+                                        setAllocationPercentage(assignment.allocationPercentage.toString());
+                                        setStartDate(assignment.startDate || "");
+                                        setEndDate(assignment.endDate || "");
+                                        setNotes(assignment.notes || "");
+                                        // Explicitly call with editing mode
+                                        setIsEditing(true);
+                                        setCurrentAssignmentId(assignment.id!);
+                                        setDialogOpen(true);
+                                      }}
+                                    >
+                                      <div className="font-medium">{assignment.role || "No role"}</div>
+                                      <Badge className="mt-1">{assignment.allocationPercentage}%</Badge>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="sm" 
+                                        className="mt-1 p-0 h-6"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteAssignment(assignment.id!);
+                                        }}
+                                      >
+                                        <Trash className="h-4 w-4 text-destructive" />
+                                      </Button>
+                                    </div>
+                                  </Tooltip>
+                                ) : (
+                                  <div 
+                                    className="w-full h-full min-h-[80px] flex items-center justify-center text-muted-foreground"
+                                    onClick={() => handleCreateAssignment(project.id!, employee.id!)}
+                                  >
+                                    <Plus className="h-5 w-5 opacity-30" />
+                                  </div>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </CardContent>
             </Card>
           </div>
+        )}
 
-          {/* Assignment Matrix */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Assignment Matrix</CardTitle>
-              <CardDescription>
-                Drag employees to projects or projects to employees to create assignments.
-                Click on an assignment cell to view details.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="min-w-full border-collapse">
-                  <thead>
-                    <tr>
-                      <th className="py-2 px-4 border bg-muted font-medium text-muted-foreground">
-                        Projects / Employees
-                      </th>
-                      {filteredEmployees.map((employee) => (
-                        <th 
-                          key={employee.id} 
-                          className="py-2 px-4 border bg-muted font-medium text-muted-foreground"
-                          draggable
-                          onDragStart={() => handleEmployeeDragStart(employee)}
-                          onDragEnd={handleDragEnd}
-                        >
-                          <div className="flex flex-col items-center">
-                            <span>{employee.firstName} {employee.lastName}</span>
-                            <span className="text-xs text-muted-foreground">{employee.position}</span>
-                          </div>
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {activeProjects.map((project) => (
-                      <tr key={project.id}>
-                        <td 
-                          className={`py-2 px-4 border font-medium ${
-                            project.status === "IN_PROGRESS" 
-                              ? "bg-blue-50" 
-                              : project.status === "COMPLETED" 
-                                ? "bg-green-50" 
-                                : project.status === "ON_HOLD" 
-                                  ? "bg-amber-50" 
-                                  : project.status === "CANCELLED" 
-                                    ? "bg-red-50" 
-                                    : "bg-slate-50"
-                          }`}
-                          draggable
-                          onDragStart={() => handleProjectDragStart(project)}
-                          onDragEnd={handleDragEnd}
-                        >
-                          <div className="flex flex-col">
-                            <span>{project.name}</span>
-                            <Badge 
-                              variant={
-                                project.status === "IN_PROGRESS" 
-                                  ? "default" 
-                                  : project.status === "COMPLETED" 
-                                    ? "success" 
-                                    : project.status === "ON_HOLD" 
-                                      ? "warning" 
-                                      : project.status === "CANCELLED" 
-                                        ? "destructive" 
-                                        : "outline"
-                              }
-                              className="mt-1 self-start"
-                            >
-                              {project.status}
-                            </Badge>
-                          </div>
-                        </td>
-                        {filteredEmployees.map((employee) => {
-                          const assignment = getAssignment(project.id!, employee.id!);
-                          const isHovered = hoveredCell && 
-                                           hoveredCell.projectId === project.id &&
-                                           hoveredCell.employeeId === employee.id;
-                          
-                          return (
-                            <td 
-                              key={`${project.id}-${employee.id}`} 
-                              className={`py-2 px-4 border text-center ${
-                                isHovered ? 'bg-blue-100' : assignment ? 'bg-green-50' : 'bg-white'
-                              }`}
-                              onDragOver={(e) => handleCellDragOver(project, employee, e)}
-                              onDrop={() => handleCellDrop(project, employee)}
-                            >
-                              {assignment ? (
-                                <div 
-                                  className="flex flex-col items-center justify-center p-2 bg-white rounded border shadow-sm cursor-pointer"
-                                  onClick={() => {
-                                    setSelectedProjectId(project.id!.toString());
-                                    setSelectedEmployeeId(employee.id!.toString());
-                                    setRole(assignment.role || "");
-                                    setAllocationPercentage(assignment.allocationPercentage.toString());
-                                    setStartDate(assignment.startDate || "");
-                                    setEndDate(assignment.endDate || "");
-                                    setNotes(assignment.notes || "");
-                                    // Explicitly call with editing mode
-                                    setIsEditing(true);
-                                    setCurrentAssignmentId(assignment.id!);
-                                    setDialogOpen(true);
-                                  }}
-                                >
-                                  <div className="font-medium">{assignment.role || "No role"}</div>
-                                  <Badge className="mt-1">{assignment.allocationPercentage}%</Badge>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    className="mt-1 p-0 h-6"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDeleteAssignment(assignment.id!);
-                                    }}
-                                  >
-                                    <Trash className="h-4 w-4 text-destructive" />
-                                  </Button>
-                                </div>
-                              ) : (
-                                <div 
-                                  className="w-full h-full min-h-[80px] flex items-center justify-center text-muted-foreground"
-                                  onClick={() => handleCreateAssignment(project.id!, employee.id!)}
-                                >
-                                  <Plus className="h-5 w-5 opacity-30" />
-                                </div>
-                              )}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Assignment Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{isEditing ? "Edit" : "Create"} Assignment</DialogTitle>
-            <DialogDescription>
-              {isEditing 
-                ? "Update the assignment details for this employee and project." 
-                : "Configure the assignment details for this employee and project."}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="project">Project</Label>
-              <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a project" />
-                </SelectTrigger>
-                <SelectContent>
-                  {projects.map((project) => (
-                    <SelectItem key={project.id} value={project.id!.toString()}>
-                      {project.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="employee">Employee</Label>
-              <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select an employee" />
-                </SelectTrigger>
-                <SelectContent>
-                  {employees.map((employee) => (
-                    <SelectItem key={employee.id} value={employee.id!.toString()}>
-                      {`${employee.firstName} ${employee.lastName}`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="role">Role</Label>
-              <Input
-                id="role"
-                placeholder="E.g., Developer, Team Lead, Designer"
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-              />
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Assignment Dialog */}
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{isEditing ? "Edit" : "Create"} Assignment</DialogTitle>
+              <DialogDescription>
+                {isEditing 
+                  ? "Update the assignment details for this employee and project." 
+                  : "Configure the assignment details for this employee and project."}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="allocation">Allocation (%)</Label>
+                <Label htmlFor="project">Project</Label>
+                <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a project" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id!.toString()}>
+                        {project.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="employee">Employee</Label>
+                <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select an employee" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {employees.map((employee) => (
+                      <SelectItem key={employee.id} value={employee.id!.toString()}>
+                        {`${employee.firstName} ${employee.lastName}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="role">Role</Label>
                 <Input
-                  id="allocation"
-                  type="number"
-                  min="1"
-                  max="100"
-                  value={allocationPercentage}
-                  onChange={(e) => setAllocationPercentage(e.target.value)}
+                  id="role"
+                  placeholder="E.g., Developer, Team Lead, Designer"
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                />
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="allocation">Allocation (%)</Label>
+                  <Input
+                    id="allocation"
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={allocationPercentage}
+                    onChange={(e) => setAllocationPercentage(e.target.value)}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="startDate">Start Date</Label>
+                  <Input
+                    id="startDate"
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="endDate">End Date</Label>
+                <Input
+                  id="endDate"
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
                 />
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="startDate">Start Date</Label>
+                <Label htmlFor="notes">Notes</Label>
                 <Input
-                  id="startDate"
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  id="notes"
+                  placeholder="Optional notes about this assignment"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
                 />
               </div>
             </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="endDate">End Date</Label>
-              <Input
-                id="endDate"
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="notes">Notes</Label>
-              <Input
-                id="notes"
-                placeholder="Optional notes about this assignment"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={handleCloseDialog}>
-              Cancel
-            </Button>
-            <Button onClick={handleSubmitAssignment}>
-              {isEditing ? "Update" : "Create"} Assignment
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={handleCloseDialog}>
+                Cancel
+              </Button>
+              <Button onClick={handleSubmitAssignment}>
+                {isEditing ? "Update" : "Create"} Assignment
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </TooltipProvider>
   );
 }
