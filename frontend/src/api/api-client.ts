@@ -17,6 +17,7 @@ import {
     ProjectAssignment,
     ProjectAssignmentCreateDto,
     ProjectAssignmentUpdateDto,
+    ProjectHealthDto,
   } from './types';
   
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
@@ -108,6 +109,8 @@ import {
       fetchApi(`/projects/status/${encodeURIComponent(status)}`),
     search: (query: string): Promise<Project[]> =>
       fetchApi(`/projects/search?query=${encodeURIComponent(query)}`),
+    getHealth: (id: number, date?: string): Promise<ProjectHealthDto> =>
+      fetchApi(`/projects/${id}/health${date ? `?date=${date}` : ''}`),
   };
   
   // Project Skill API

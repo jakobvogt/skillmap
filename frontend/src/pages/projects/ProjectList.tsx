@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ColumnDef } from "@tanstack/react-table";
 import { MoreHorizontal, Plus, Search, Clock, CheckCircle, XCircle, PauseCircle } from "lucide-react";
 import { format } from "date-fns";
-import { Project, ProjectApi } from "@/api";
+import { Project, ProjectApi, ProjectHealthDto } from "@/api";
 import { Button } from "@/components/ui/Button";
 import { DataTable } from "@/components/ui/DataTable";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -17,12 +17,14 @@ import { toast } from "@/components/ui/useToast";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/Select";
+import { ProjectHealthIndicator } from "@/components/ProjectHealthIndicator";
 
 export function ProjectList() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchParams, setSearchParams] = useSearchParams();
+  const [projectHealthMap, setProjectHealthMap] = useState<Record<number, ProjectHealthDto>>({});
   const navigate = useNavigate();
 
   const statusFilter = searchParams.get("status") || "";
@@ -34,6 +36,12 @@ export function ProjectList() {
       fetchProjects();
     }
   }, [statusFilter]);
+
+  useEffect(() => {
+    if (projects.length > 0) {
+      fetchAllProjectHealth();
+    }
+  }, [projects]);
 
   const fetchProjects = async () => {
     try {
@@ -88,6 +96,23 @@ export function ProjectList() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchAllProjectHealth = async () => {
+    try {
+      const healthMap: Record<number, ProjectHealthDto> = {};
+      
+      for (const project of projects) {
+        if (project.id) {
+          const health = await ProjectApi.getHealth(project.id);
+          healthMap[project.id] = health;
+        }
+      }
+      
+      setProjectHealthMap(healthMap);
+    } catch (error) {
+      console.error("Error fetching project health:", error);
     }
   };
 
@@ -197,6 +222,23 @@ export function ProjectList() {
       cell: ({ row }) => {
         const budget = row.original.budget;
         return budget ? `$${parseFloat(budget.toString()).toLocaleString()}` : "-";
+      },
+    },
+    {
+      id: "health",
+      header: "Health",
+      cell: ({ row }) => {
+        const project = row.original;
+        const health = projectHealthMap[project.id!];
+        return health ? (
+          <ProjectHealthIndicator 
+            health={health} 
+            variant="compact" 
+            className="min-w-[120px]"
+          />
+        ) : (
+          <div className="text-muted-foreground text-sm">Loading...</div>
+        );
       },
     },
     {

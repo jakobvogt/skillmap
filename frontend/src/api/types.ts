@@ -169,3 +169,26 @@ export interface ProjectAssignmentUpdateDto {
     isAutomaticallyAssigned?: boolean;
     notes?: string;
 }
+
+export interface ProjectHealthDto {
+    projectId: number;
+    fteCoveragePercentage: number;
+    proficiencyMatchPercentage: number;
+    overallHealthScore: number;
+    skillCoverages: SkillCoverageDto[];
+}
+
+export interface SkillCoverageDto {
+    skillId: number;
+    skillName: string;
+    fteCoveragePercentage: number;
+    proficiencyMatchPercentage: number;
+    combinedScore: number;
+    requiredFTE: number;
+    actualFTE: number;
+    fteThreshold: number;
+    requiredProficiency?: number;
+    bestTeamProficiency?: number;
+    effectiveAssignments: number;
+    totalAssignments: number;
+}

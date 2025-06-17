@@ -11,7 +11,8 @@ import {
   ProjectSkill,
   ProjectSkillApi,
   EmployeeSkill,
-  EmployeeSkillApi
+  EmployeeSkillApi,
+  ProjectHealthDto
 } from "@/api";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -27,6 +28,9 @@ import { TooltipProvider } from "@/components/ui/Tooltip";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { ProjectSkillTooltip } from "@/components/ProjectSkillTooltip";
 import { EmployeeSkillTooltip } from "@/components/EmployeeSkillTooltip";
+import { ProjectHealthIndicator, getHealthBackgroundColor, getHealthBorderColor } from "@/components/ProjectHealthIndicator";
+import { ProjectHealthTooltip } from "@/components/ProjectHealthTooltip";
+import { cn } from "@/lib/utils";
 
 export function AssignmentDashboard() {
   // State for data
@@ -41,6 +45,9 @@ export function AssignmentDashboard() {
   
   // State for employee allocations
   const [employeeAllocations, setEmployeeAllocations] = useState<Record<number, number>>({});
+  
+  // State for project health
+  const [projectHealthMap, setProjectHealthMap] = useState<Record<number, ProjectHealthDto>>({});
   
   // State for filtering
   const [activeProjects, setActiveProjects] = useState<Project[]>([]);
@@ -79,9 +86,10 @@ export function AssignmentDashboard() {
   }, []);
 
   useEffect(() => {
-    // Fetch project skills when projects are loaded
+    // Fetch project skills and health when projects are loaded
     if (projects.length > 0) {
       fetchAllProjectSkills();
+      fetchAllProjectHealth();
     }
   }, [projects]);
 
@@ -245,6 +253,28 @@ export function AssignmentDashboard() {
       toast({
         title: "Error",
         description: "Failed to load employee allocations",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const fetchAllProjectHealth = async () => {
+    try {
+      const healthMap: Record<number, ProjectHealthDto> = {};
+      
+      for (const project of projects) {
+        if (project.id) {
+          const health = await ProjectApi.getHealth(project.id, selectedDate);
+          healthMap[project.id] = health;
+        }
+      }
+      
+      setProjectHealthMap(healthMap);
+    } catch (error) {
+      console.error("Error fetching project health:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load project health data",
         variant: "destructive",
       });
     }
@@ -481,6 +511,69 @@ export function AssignmentDashboard() {
     }
   }, [assignments]);
 
+  // Helper function to get allocation background color
+  const getAllocationBackgroundColor = (allocation: number) => {
+    if (allocation > 100) return "bg-red-50"; // Over-allocated (bad)
+    if (allocation >= 80) return "bg-green-50"; // Well allocated (good)
+    if (allocation >= 40) return "bg-yellow-50"; // Partially allocated (warning)
+    return "bg-red-50"; // Under-allocated (bad)
+  };
+
+  const getAllocationBorderColor = (allocation: number) => {
+    if (allocation > 100) return "border-red-200"; // Over-allocated (bad)
+    if (allocation >= 80) return "border-green-200"; // Well allocated (good)
+    if (allocation >= 40) return "border-yellow-200"; // Partially allocated (warning)
+    return "border-red-200"; // Under-allocated (bad)
+  };
+
+  // Helper function to check if employee has any matching skills for a project
+  const hasMatchingSkills = (employeeId: number, projectId: number): boolean => {
+    const employeeSkills = employeeSkillsMap[employeeId] || [];
+    const projectSkills = projectSkillsMap[projectId] || [];
+    
+    if (employeeSkills.length === 0 || projectSkills.length === 0) {
+      return false;
+    }
+    
+    const employeeSkillIds = new Set(employeeSkills.map(skill => skill.skillId));
+    return projectSkills.some(projectSkill => 
+      projectSkill.skillId && employeeSkillIds.has(projectSkill.skillId)
+    );
+  };
+
+  // Helper function to check if assignment is truly effective (meets both skill match AND FTE threshold)
+  const isEffectiveAssignment = (employeeId: number, projectId: number, assignment: ProjectAssignment): boolean => {
+    // First check if there's any skill match
+    if (!hasMatchingSkills(employeeId, projectId)) {
+      return false;
+    }
+    
+    const employeeSkills = employeeSkillsMap[employeeId] || [];
+    const projectSkills = projectSkillsMap[projectId] || [];
+    const employeeFTE = assignment.allocationPercentage / 100.0;
+    
+    // Check if employee meets FTE threshold AND proficiency requirements for any skill
+    const employeeSkillMap = new Map(employeeSkills.map(skill => [skill.skillId, skill]));
+    
+    return projectSkills.some(projectSkill => {
+      if (!projectSkill.skillId) return false;
+      
+      const employeeSkill = employeeSkillMap.get(projectSkill.skillId);
+      if (!employeeSkill) return false;
+      
+      // Check FTE threshold
+      if (employeeFTE < projectSkill.fteThreshold) return false;
+      
+      // Check proficiency requirement (if any)
+      if (projectSkill.minimumProficiencyLevel && 
+          employeeSkill.proficiencyLevel < projectSkill.minimumProficiencyLevel) {
+        return false;
+      }
+      
+      return true;
+    });
+  };
+
   return (
     <TooltipProvider>
       <div className="container mx-auto">
@@ -605,14 +698,20 @@ export function AssignmentDashboard() {
                         <th className="py-2 px-4 border bg-muted font-medium text-muted-foreground">
                           Projects / Employees
                         </th>
-                        {filteredEmployees.map((employee) => (
-                          <th 
-                            key={employee.id} 
-                            className="py-2 px-4 border bg-muted font-medium text-muted-foreground"
-                            draggable
-                            onDragStart={() => handleEmployeeDragStart(employee)}
-                            onDragEnd={handleDragEnd}
-                          >
+                        {filteredEmployees.map((employee) => {
+                          const allocation = employeeAllocations[employee.id!] || 0;
+                          return (
+                            <th 
+                              key={employee.id} 
+                              className={cn(
+                                "py-2 px-4 border font-medium",
+                                getAllocationBackgroundColor(allocation),
+                                getAllocationBorderColor(allocation)
+                              )}
+                              draggable
+                              onDragStart={() => handleEmployeeDragStart(employee)}
+                              onDragEnd={handleDragEnd}
+                            >
                             <Tooltip
                               content={
                                 <EmployeeSkillTooltip 
@@ -632,43 +731,46 @@ export function AssignmentDashboard() {
                                 </Link>
                                 <span className="text-xs text-muted-foreground">{employee.position}</span>
                                 <Badge 
-                                  variant={employeeAllocations[employee.id!] > 100 ? "destructive" : 
-                                          employeeAllocations[employee.id!] === 100 ? "outline" : 
+                                  variant={allocation > 100 ? "destructive" : 
+                                          allocation >= 80 ? "outline" : 
                                           "secondary"}
-                                  className={`mt-1 text-xs ${employeeAllocations[employee.id!] > 100 ? "text-white" : ""}`}
+                                  className="mt-1 text-xs"
                                 >
-                                  {employeeAllocations[employee.id!] || 0}% allocated
+                                  {allocation}% allocated
                                 </Badge>
                               </div>
                             </Tooltip>
                           </th>
-                        ))}
+                          );
+                        })}
                       </tr>
                     </thead>
                     <tbody>
-                      {activeProjects.map((project) => (
-                        <tr key={project.id}>
-                          <td 
-                            className={`py-2 px-4 border font-medium ${
-                              project.status === "IN_PROGRESS" 
-                                ? "bg-blue-50" 
-                                : project.status === "COMPLETED" 
-                                  ? "bg-green-50" 
-                                  : project.status === "ON_HOLD" 
-                                    ? "bg-amber-50" 
-                                    : project.status === "CANCELLED" 
-                                      ? "bg-red-50" 
-                                      : "bg-slate-50"
-                            }`}
-                            draggable
-                            onDragStart={() => handleProjectDragStart(project)}
-                            onDragEnd={handleDragEnd}
-                          >
+                      {activeProjects.map((project) => {
+                        const health = projectHealthMap[project.id!];
+                        const healthScore = health?.overallHealthScore ?? 0;
+                        
+                        return (
+                          <tr key={project.id}>
+                            <td 
+                              className={cn(
+                                "py-2 px-4 border font-medium",
+                                health ? getHealthBackgroundColor(healthScore) : "bg-slate-50",
+                                health ? getHealthBorderColor(healthScore) : "border-gray-200"
+                              )}
+                              draggable
+                              onDragStart={() => handleProjectDragStart(project)}
+                              onDragEnd={handleDragEnd}
+                            >
                             <Tooltip
                               content={
-                                <ProjectSkillTooltip 
-                                  skills={projectSkillsMap[project.id!] || []} 
-                                />
+                                health ? (
+                                  <ProjectHealthTooltip health={health} />
+                                ) : (
+                                  <ProjectSkillTooltip 
+                                    skills={projectSkillsMap[project.id!] || []} 
+                                  />
+                                )
                               }
                               side="left"
                               delayDuration={300}
@@ -697,6 +799,14 @@ export function AssignmentDashboard() {
                                 >
                                   {project.status}
                                 </Badge>
+                                {health && (
+                                  <div className="mt-2">
+                                    <ProjectHealthIndicator 
+                                      health={health} 
+                                      variant="bar"
+                                    />
+                                  </div>
+                                )}
                               </div>
                             </Tooltip>
                           </td>
@@ -709,13 +819,22 @@ export function AssignmentDashboard() {
                             // Get the project skills and employee skills for the tooltip
                             const projectSkills = projectSkillsMap[project.id!] || [];
                             const employeeSkills = employeeSkillsMap[employee.id!] || [];
+                            const hasSkillMatch = hasMatchingSkills(employee.id!, project.id!);
+                            const isEffective = assignment ? isEffectiveAssignment(employee.id!, project.id!, assignment) : false;
+                            
+                            // Determine cell background color
+                            let cellBgColor = 'bg-white';
+                            if (isHovered) {
+                              cellBgColor = 'bg-blue-100';
+                            } else if (assignment) {
+                              // Assignment exists - check if it's truly effective
+                              cellBgColor = isEffective ? 'bg-green-50' : 'bg-red-50';
+                            }
                             
                             return (
                               <td 
                                 key={`${project.id}-${employee.id}`} 
-                                className={`py-2 px-4 border text-center ${
-                                  isHovered ? 'bg-blue-100' : assignment ? 'bg-green-50' : 'bg-white'
-                                }`}
+                                className={`py-2 px-4 border text-center ${cellBgColor}`}
                                 onDragOver={(e) => handleCellDragOver(project, employee, e)}
                                 onDrop={() => handleCellDrop(project, employee)}
                               >
@@ -731,7 +850,10 @@ export function AssignmentDashboard() {
                                     delayDuration={300}
                                   >
                                     <div 
-                                      className="flex flex-col items-center justify-center p-2 bg-white rounded border shadow-sm cursor-pointer"
+                                      className={cn(
+                                        "flex flex-col items-center justify-center p-2 bg-white rounded border shadow-sm cursor-pointer",
+                                        !isEffective && "border-red-300"
+                                      )}
                                       onClick={() => {
                                         setSelectedProjectId(project.id!.toString());
                                         setSelectedEmployeeId(employee.id!.toString());
@@ -748,6 +870,11 @@ export function AssignmentDashboard() {
                                     >
                                       <div className="font-medium">{assignment.role || "No role"}</div>
                                       <Badge className="mt-1">{assignment.allocationPercentage}%</Badge>
+                                      {!isEffective && (
+                                        <div className="text-xs text-red-600 mt-1 font-medium">
+                                          {!hasSkillMatch ? "No skill match" : "Below threshold"}
+                                        </div>
+                                      )}
                                       <Button 
                                         variant="ghost" 
                                         size="sm" 
@@ -773,7 +900,8 @@ export function AssignmentDashboard() {
                             );
                           })}
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

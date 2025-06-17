@@ -44,7 +44,7 @@ export function ProjectSkillTooltip({ skills }: ProjectSkillTooltipProps) {
   const skillsByCategory: Record<string, ProjectSkill[]> = {};
   
   skills.forEach(skill => {
-    const category = (skill as any).category || 'Uncategorized';
+    const category = (skill as { category?: string }).category || 'Uncategorized';
     if (!skillsByCategory[category]) {
       skillsByCategory[category] = [];
     }

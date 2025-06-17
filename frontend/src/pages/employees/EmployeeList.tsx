@@ -143,9 +143,10 @@ export function EmployeeList() {
         return (
           <Badge 
             variant={allocation > 100 ? "destructive" : 
-                    allocation === 100 ? "outline" : 
-                    "secondary"}
-            className={`${allocation > 100 ? "text-white" : ""}`}
+                    allocation >= 80 ? "default" : 
+                    allocation >= 40 ? "outline" : 
+                    "destructive"}
+            className={allocation > 100 || allocation < 40 ? "text-white" : ""}
           >
             {allocation}%
           </Badge>

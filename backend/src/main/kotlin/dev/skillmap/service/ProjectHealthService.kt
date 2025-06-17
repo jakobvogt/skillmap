@@ -86,37 +86,43 @@ class ProjectHealthServiceImpl(
         }
         
         // Filter assignments that meet the FTE threshold
-        val effectiveAssignments = relevantAssignments.filter { assignment ->
+        val fteEligibleAssignments = relevantAssignments.filter { assignment ->
             val employeeFTE = assignment.allocationPercentage / 100.0
             employeeFTE >= projectSkill.fteThreshold
         }
         
-        // Calculate total FTE from effective assignments
-        val totalEffectiveFTE = effectiveAssignments.sumOf { assignment ->
+        // Filter assignments that ALSO meet the proficiency threshold
+        val requiredProficiency = projectSkill.minimumProficiencyRequired
+        val trulyEffectiveAssignments = if (requiredProficiency != null) {
+            fteEligibleAssignments.filter { assignment ->
+                val employeeProficiency = getEmployeeProficiency(assignment.employee.id!!, skill.id!!)
+                employeeProficiency != null && employeeProficiency >= requiredProficiency
+            }
+        } else {
+            fteEligibleAssignments // No proficiency requirement, so all FTE-eligible assignments are effective
+        }
+        
+        // Calculate total FTE from truly effective assignments (meet both FTE and proficiency thresholds)
+        val totalEffectiveFTE = trulyEffectiveAssignments.sumOf { assignment ->
             assignment.allocationPercentage / 100.0
         }
         
-        // Calculate FTE coverage percentage
+        // Calculate FTE coverage percentage based on truly effective assignments
         val fteCoveragePercentage = if (projectSkill.minimumFTE > 0) {
             min(100.0, (totalEffectiveFTE / projectSkill.minimumFTE) * 100.0)
         } else {
             100.0 // No requirement means 100% covered
         }
         
-        // Calculate proficiency match
-        val requiredProficiency = projectSkill.minimumProficiencyRequired
-        val bestTeamProficiency = if (relevantAssignments.isNotEmpty()) {
-            relevantAssignments.mapNotNull { assignment ->
-                getEmployeeProficiency(assignment.employee.id!!, skill.id!!)
-            }.maxOrNull()
-        } else {
-            null
-        }
-        
+        // Calculate proficiency match: what % of FTE-eligible assignments meet proficiency requirements
         val proficiencyMatchPercentage = when {
             requiredProficiency == null -> 100.0 // No proficiency requirement
-            bestTeamProficiency == null -> 0.0 // No one on team has this skill
-            else -> min(100.0, (bestTeamProficiency.toDouble() / requiredProficiency.toDouble()) * 100.0)
+            fteEligibleAssignments.isEmpty() -> 0.0 // No FTE-eligible assignments
+            else -> {
+                val proficientCount = trulyEffectiveAssignments.size
+                val fteEligibleCount = fteEligibleAssignments.size
+                (proficientCount.toDouble() / fteEligibleCount.toDouble()) * 100.0
+            }
         }
         
         // Combined score: 60% FTE coverage + 40% proficiency match
@@ -132,8 +138,12 @@ class ProjectHealthServiceImpl(
             actualFTE = totalEffectiveFTE,
             fteThreshold = projectSkill.fteThreshold,
             requiredProficiency = requiredProficiency,
-            bestTeamProficiency = bestTeamProficiency,
-            effectiveAssignments = effectiveAssignments.size,
+            bestTeamProficiency = if (trulyEffectiveAssignments.isNotEmpty()) {
+                trulyEffectiveAssignments.mapNotNull { assignment ->
+                    getEmployeeProficiency(assignment.employee.id!!, skill.id!!)
+                }.maxOrNull()
+            } else null,
+            effectiveAssignments = trulyEffectiveAssignments.size,
             totalAssignments = relevantAssignments.size
         )
     }
