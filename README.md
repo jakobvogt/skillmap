@@ -60,7 +60,7 @@ SkillMap addresses this by:
 2. Navigate to the backend directory
 3. Start the PostgreSQL database container:
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 4. Run the backend:
 ```bash
@@ -71,11 +71,11 @@ docker-compose up -d
 1. Navigate to the frontend directory
 2. Install dependencies:
 ```bash
-npm install
+pnpm install
 ```
 3. Start the development server:
 ```bash
-npm run dev
+pnpm run dev
 ```
 
 ## Project Structure
