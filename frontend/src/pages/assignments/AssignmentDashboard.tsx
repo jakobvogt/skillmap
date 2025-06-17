@@ -39,12 +39,16 @@ export function AssignmentDashboard() {
   const [projectSkillsMap, setProjectSkillsMap] = useState<Record<number, ProjectSkill[]>>({});
   const [employeeSkillsMap, setEmployeeSkillsMap] = useState<Record<number, EmployeeSkill[]>>({});
   
+  // State for employee allocations
+  const [employeeAllocations, setEmployeeAllocations] = useState<Record<number, number>>({});
+  
   // State for filtering
   const [activeProjects, setActiveProjects] = useState<Project[]>([]);
   const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([]);
   const [searchProject, setSearchProject] = useState("");
   const [searchEmployee, setSearchEmployee] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
   // State for assignment dialog
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -85,6 +89,7 @@ export function AssignmentDashboard() {
     // Fetch employee skills when employees are loaded
     if (employees.length > 0) {
       fetchAllEmployeeSkills();
+      fetchAllEmployeeAllocations();
     }
   }, [employees]);
 
@@ -124,6 +129,14 @@ export function AssignmentDashboard() {
     }
   }, [employees, searchEmployee]);
 
+  useEffect(() => {
+    // Refetch assignments and allocations when date changes
+    if (employees.length > 0) {
+      fetchAllAssignments();
+      fetchAllEmployeeAllocations();
+    }
+  }, [selectedDate, employees]);
+
   const fetchProjects = async () => {
     try {
       const data = await ProjectApi.getAll();
@@ -156,17 +169,8 @@ export function AssignmentDashboard() {
 
   const fetchAllAssignments = async () => {
     try {
-      // For simplicity, we'll fetch assignments for all projects
-      const data: ProjectAssignment[] = [];
-      const projects = await ProjectApi.getAll();
-      
-      for (const project of projects) {
-        if (project.id) {
-          const projectAssignments = await ProjectAssignmentApi.getByProjectId(project.id);
-          data.push(...projectAssignments);
-        }
-      }
-      
+      // Use the new endpoint to get active assignments for the selected date
+      const data = await ProjectAssignmentApi.getActive(selectedDate);
       setAssignments(data);
       return data;
     } catch (error) {
@@ -224,6 +228,28 @@ export function AssignmentDashboard() {
     }
   };
 
+  const fetchAllEmployeeAllocations = async () => {
+    try {
+      const allocationsMap: Record<number, number> = {};
+      
+      for (const employee of employees) {
+        if (employee.id) {
+          const allocation = await ProjectAssignmentApi.getAllocationForEmployee(employee.id, selectedDate);
+          allocationsMap[employee.id] = allocation;
+        }
+      }
+      
+      setEmployeeAllocations(allocationsMap);
+    } catch (error) {
+      console.error("Error fetching employee allocations:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load employee allocations",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleCreateAssignment = async (projectId: number, employeeId: number) => {
     // Check if assignment already exists
     const existingAssignment = getAssignment(projectId, employeeId);
@@ -257,8 +283,22 @@ export function AssignmentDashboard() {
 
   const handleDeleteAssignment = async (id: number) => {
     try {
+      // Find the assignment to get the employee ID
+      const assignment = assignments.find(a => a.id === id);
+      const employeeId = assignment?.employeeId;
+      
       await ProjectAssignmentApi.delete(id);
       setAssignments(assignments.filter((assignment) => assignment.id !== id));
+      
+      // Update the employee's total allocation if we have the employee ID
+      if (employeeId) {
+        const newAllocation = await ProjectAssignmentApi.getAllocationForEmployee(employeeId, selectedDate);
+        setEmployeeAllocations(prev => ({
+          ...prev,
+          [employeeId]: newAllocation
+        }));
+      }
+      
       toast({
         title: "Success",
         description: "Assignment deleted successfully",
@@ -325,6 +365,13 @@ export function AssignmentDashboard() {
           )
         );
         
+        // Update the employee's total allocation
+        const newAllocation = await ProjectAssignmentApi.getAllocationForEmployee(parseInt(selectedEmployeeId), selectedDate);
+        setEmployeeAllocations(prev => ({
+          ...prev,
+          [parseInt(selectedEmployeeId)]: newAllocation
+        }));
+        
         toast({
           title: "Success",
           description: "Assignment updated successfully",
@@ -360,6 +407,13 @@ export function AssignmentDashboard() {
         
         // Update assignments
         setAssignments([...assignments, newAssignment]);
+        
+        // Update the employee's total allocation
+        const newAllocation = await ProjectAssignmentApi.getAllocationForEmployee(parseInt(selectedEmployeeId), selectedDate);
+        setEmployeeAllocations(prev => ({
+          ...prev,
+          [parseInt(selectedEmployeeId)]: newAllocation
+        }));
         
         toast({
           title: "Success",
@@ -419,6 +473,13 @@ export function AssignmentDashboard() {
     setDraggedProject(null);
     setHoveredCell(null);
   };
+  
+  // Also refresh allocations when assignments change
+  useEffect(() => {
+    if (assignments.length > 0 && employees.length > 0) {
+      fetchAllEmployeeAllocations();
+    }
+  }, [assignments]);
 
   return (
     <TooltipProvider>
@@ -448,6 +509,27 @@ export function AssignmentDashboard() {
           </div>
         ) : (
           <div className="mt-6">
+            {/* Date Filter */}
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle>Date Filter</CardTitle>
+                <CardDescription>
+                  Select a date to view assignments and allocations for that specific date
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="max-w-sm">
+                  <Label htmlFor="selectedDate">View Date</Label>
+                  <Input
+                    id="selectedDate"
+                    type="date"
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Filters */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
               {/* Project filters */}
@@ -549,6 +631,14 @@ export function AssignmentDashboard() {
                                   {employee.firstName} {employee.lastName}
                                 </Link>
                                 <span className="text-xs text-muted-foreground">{employee.position}</span>
+                                <Badge 
+                                  variant={employeeAllocations[employee.id!] > 100 ? "destructive" : 
+                                          employeeAllocations[employee.id!] === 100 ? "outline" : 
+                                          "secondary"}
+                                  className="mt-1 text-xs"
+                                >
+                                  {employeeAllocations[employee.id!] || 0}% allocated
+                                </Badge>
                               </div>
                             </Tooltip>
                           </th>
@@ -596,9 +686,9 @@ export function AssignmentDashboard() {
                                     project.status === "IN_PROGRESS" 
                                       ? "default" 
                                       : project.status === "COMPLETED" 
-                                        ? "success" 
+                                        ? "secondary" 
                                         : project.status === "ON_HOLD" 
-                                          ? "warning" 
+                                          ? "outline" 
                                           : project.status === "CANCELLED" 
                                             ? "destructive" 
                                             : "outline"

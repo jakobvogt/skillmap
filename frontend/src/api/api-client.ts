@@ -142,8 +142,10 @@ import {
       fetchApi(`/project-assignments/${id}`, 'PUT', assignment),
     delete: (id: number): Promise<void> =>
       fetchApi(`/project-assignments/${id}`, 'DELETE'),
-    getCurrentForEmployee: (employeeId: number): Promise<ProjectAssignment[]> =>
-      fetchApi(`/project-assignments/employee/${employeeId}/current`),
-    getAllocationForEmployee: (employeeId: number): Promise<number> =>
-      fetchApi(`/project-assignments/employee/${employeeId}/allocation`),
+    getCurrentForEmployee: (employeeId: number, date?: string): Promise<ProjectAssignment[]> =>
+      fetchApi(`/project-assignments/employee/${employeeId}/current${date ? `?date=${date}` : ''}`),
+    getAllocationForEmployee: (employeeId: number, date?: string): Promise<number> =>
+      fetchApi(`/project-assignments/employee/${employeeId}/allocation${date ? `?date=${date}` : ''}`),
+    getActive: (date?: string): Promise<ProjectAssignment[]> =>
+      fetchApi(`/project-assignments/active${date ? `?date=${date}` : ''}`),
   };

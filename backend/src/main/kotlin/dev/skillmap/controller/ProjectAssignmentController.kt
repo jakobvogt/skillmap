@@ -7,6 +7,7 @@ import dev.skillmap.service.ProjectAssignmentService
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
+import java.time.LocalDate
 
 @RestController
 @RequestMapping("/api/project-assignments")
@@ -21,6 +22,12 @@ class ProjectAssignmentController(private val projectAssignmentService: ProjectA
     @GetMapping("/employee/{employeeId}")
     fun getAssignmentsByEmployeeId(@PathVariable employeeId: Long): ResponseEntity<List<ProjectAssignmentDto>> {
         return ResponseEntity.ok(projectAssignmentService.getAssignmentsByEmployeeId(employeeId))
+    }
+
+    @GetMapping("/active")
+    fun getActiveAssignments(@RequestParam(required = false) date: LocalDate?): ResponseEntity<List<ProjectAssignmentDto>> {
+        val targetDate = date ?: LocalDate.now()
+        return ResponseEntity.ok(projectAssignmentService.getActiveAssignments(targetDate))
     }
 
     @GetMapping("/{id}")
@@ -49,12 +56,20 @@ class ProjectAssignmentController(private val projectAssignmentService: ProjectA
     }
 
     @GetMapping("/employee/{employeeId}/current")
-    fun getCurrentAssignmentsForEmployee(@PathVariable employeeId: Long): ResponseEntity<List<ProjectAssignmentDto>> {
-        return ResponseEntity.ok(projectAssignmentService.getCurrentAssignmentsForEmployee(employeeId))
+    fun getCurrentAssignmentsForEmployee(
+        @PathVariable employeeId: Long,
+        @RequestParam(required = false) date: LocalDate?
+    ): ResponseEntity<List<ProjectAssignmentDto>> {
+        val targetDate = date ?: LocalDate.now()
+        return ResponseEntity.ok(projectAssignmentService.getCurrentAssignmentsForEmployee(employeeId, targetDate))
     }
 
     @GetMapping("/employee/{employeeId}/allocation")
-    fun getTotalAllocationForEmployee(@PathVariable employeeId: Long): ResponseEntity<Int> {
-        return ResponseEntity.ok(projectAssignmentService.getTotalAllocationForEmployee(employeeId))
+    fun getTotalAllocationForEmployee(
+        @PathVariable employeeId: Long,
+        @RequestParam(required = false) date: LocalDate?
+    ): ResponseEntity<Int> {
+        val targetDate = date ?: LocalDate.now()
+        return ResponseEntity.ok(projectAssignmentService.getTotalAllocationForEmployee(employeeId, targetDate))
     }
 }

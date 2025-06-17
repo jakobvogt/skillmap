@@ -48,4 +48,15 @@ interface ProjectAssignmentRepository : JpaRepository<ProjectAssignment, Long> {
 
     // Find assignments made by the automatic algorithm
     fun findByIsAutomaticallyAssignedTrue(): List<ProjectAssignment>
+
+    // Find all active assignments for a specific date
+    @Query("""
+        SELECT pa FROM ProjectAssignment pa
+        WHERE (
+            (pa.startDate IS NULL AND pa.endDate IS NULL) OR
+            (pa.startDate <= :date AND (pa.endDate IS NULL OR pa.endDate >= :date))
+        )
+        AND pa.project.status NOT IN ('COMPLETED', 'CANCELLED')
+    """)
+    fun findActiveAssignments(@Param("date") date: LocalDate): List<ProjectAssignment>
 }

@@ -20,8 +20,9 @@ interface ProjectAssignmentService {
     fun createAssignment(assignmentCreateDto: ProjectAssignmentCreateDto): ProjectAssignmentDto
     fun updateAssignment(id: Long, assignmentUpdateDto: ProjectAssignmentUpdateDto): ProjectAssignmentDto
     fun deleteAssignment(id: Long)
-    fun getCurrentAssignmentsForEmployee(employeeId: Long): List<ProjectAssignmentDto>
-    fun getTotalAllocationForEmployee(employeeId: Long): Int
+    fun getCurrentAssignmentsForEmployee(employeeId: Long, date: LocalDate = LocalDate.now()): List<ProjectAssignmentDto>
+    fun getTotalAllocationForEmployee(employeeId: Long, date: LocalDate = LocalDate.now()): Int
+    fun getActiveAssignments(date: LocalDate = LocalDate.now()): List<ProjectAssignmentDto>
 }
 
 @Service
@@ -100,20 +101,22 @@ class ProjectAssignmentServiceImpl(
         projectAssignmentRepository.deleteById(id)
     }
 
-    override fun getCurrentAssignmentsForEmployee(employeeId: Long): List<ProjectAssignmentDto> {
+    override fun getCurrentAssignmentsForEmployee(employeeId: Long, date: LocalDate): List<ProjectAssignmentDto> {
         if (!employeeRepository.existsById(employeeId)) {
             throw EntityNotFoundException("Employee not found with id: $employeeId")
         }
-        val today = LocalDate.now()
-        return projectAssignmentRepository.findCurrentAssignmentsForEmployee(employeeId, today).map { it.toDto() }
+        return projectAssignmentRepository.findCurrentAssignmentsForEmployee(employeeId, date).map { it.toDto() }
     }
 
-    override fun getTotalAllocationForEmployee(employeeId: Long): Int {
+    override fun getTotalAllocationForEmployee(employeeId: Long, date: LocalDate): Int {
         if (!employeeRepository.existsById(employeeId)) {
             throw EntityNotFoundException("Employee not found with id: $employeeId")
         }
-        val today = LocalDate.now()
-        return projectAssignmentRepository.calculateTotalAllocationForEmployee(employeeId, today)
+        return projectAssignmentRepository.calculateTotalAllocationForEmployee(employeeId, date)
+    }
+
+    override fun getActiveAssignments(date: LocalDate): List<ProjectAssignmentDto> {
+        return projectAssignmentRepository.findActiveAssignments(date).map { it.toDto() }
     }
 
     private fun ProjectAssignment.toDto(): ProjectAssignmentDto {
