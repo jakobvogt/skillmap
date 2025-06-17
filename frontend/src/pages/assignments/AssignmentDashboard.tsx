@@ -635,7 +635,7 @@ export function AssignmentDashboard() {
                                   variant={employeeAllocations[employee.id!] > 100 ? "destructive" : 
                                           employeeAllocations[employee.id!] === 100 ? "outline" : 
                                           "secondary"}
-                                  className="mt-1 text-xs"
+                                  className={`mt-1 text-xs ${employeeAllocations[employee.id!] > 100 ? "text-white" : ""}`}
                                 >
                                   {employeeAllocations[employee.id!] || 0}% allocated
                                 </Badge>
