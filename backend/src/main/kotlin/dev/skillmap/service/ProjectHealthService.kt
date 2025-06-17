@@ -11,17 +11,23 @@ import kotlin.math.min
 
 data class ProjectHealthDto(
     val projectId: Long,
-    val skillCoveragePercentage: Double,
+    val fteCoveragePercentage: Double,
+    val proficiencyMatchPercentage: Double,
+    val overallHealthScore: Double,
     val skillCoverages: List<SkillCoverageDto>
 )
 
 data class SkillCoverageDto(
     val skillId: Long,
     val skillName: String,
-    val coveragePercentage: Double,
+    val fteCoveragePercentage: Double,
+    val proficiencyMatchPercentage: Double,
+    val combinedScore: Double,
     val requiredFTE: Double,
     val actualFTE: Double,
     val fteThreshold: Double,
+    val requiredProficiency: Int?,
+    val bestTeamProficiency: Int?,
     val effectiveAssignments: Int,
     val totalAssignments: Int
 )
@@ -47,15 +53,26 @@ class ProjectHealthServiceImpl(
             calculateSkillCoverage(projectSkill, assignments)
         }
         
-        val overallCoverage = if (skillCoverages.isEmpty()) {
+        val overallFteCoverage = if (skillCoverages.isEmpty()) {
             100.0
         } else {
-            skillCoverages.map { it.coveragePercentage }.average()
+            skillCoverages.map { it.fteCoveragePercentage }.average()
         }
+        
+        val overallProficiencyMatch = if (skillCoverages.isEmpty()) {
+            100.0
+        } else {
+            skillCoverages.map { it.proficiencyMatchPercentage }.average()
+        }
+        
+        // Combined health score: 60% FTE coverage + 40% proficiency match
+        val overallHealthScore = (0.6 * overallFteCoverage) + (0.4 * overallProficiencyMatch)
         
         return ProjectHealthDto(
             projectId = projectId,
-            skillCoveragePercentage = overallCoverage,
+            fteCoveragePercentage = overallFteCoverage,
+            proficiencyMatchPercentage = overallProficiencyMatch,
+            overallHealthScore = overallHealthScore,
             skillCoverages = skillCoverages
         )
     }
@@ -79,20 +96,43 @@ class ProjectHealthServiceImpl(
             assignment.allocationPercentage / 100.0
         }
         
-        // Calculate coverage percentage
-        val coveragePercentage = if (projectSkill.minimumFTE > 0) {
+        // Calculate FTE coverage percentage
+        val fteCoveragePercentage = if (projectSkill.minimumFTE > 0) {
             min(100.0, (totalEffectiveFTE / projectSkill.minimumFTE) * 100.0)
         } else {
             100.0 // No requirement means 100% covered
         }
         
+        // Calculate proficiency match
+        val requiredProficiency = projectSkill.minimumProficiencyRequired
+        val bestTeamProficiency = if (relevantAssignments.isNotEmpty()) {
+            relevantAssignments.mapNotNull { assignment ->
+                getEmployeeProficiency(assignment.employee.id!!, skill.id!!)
+            }.maxOrNull()
+        } else {
+            null
+        }
+        
+        val proficiencyMatchPercentage = when {
+            requiredProficiency == null -> 100.0 // No proficiency requirement
+            bestTeamProficiency == null -> 0.0 // No one on team has this skill
+            else -> min(100.0, (bestTeamProficiency.toDouble() / requiredProficiency.toDouble()) * 100.0)
+        }
+        
+        // Combined score: 60% FTE coverage + 40% proficiency match
+        val combinedScore = (0.6 * fteCoveragePercentage) + (0.4 * proficiencyMatchPercentage)
+        
         return SkillCoverageDto(
             skillId = skill.id!!,
             skillName = skill.name,
-            coveragePercentage = coveragePercentage,
+            fteCoveragePercentage = fteCoveragePercentage,
+            proficiencyMatchPercentage = proficiencyMatchPercentage,
+            combinedScore = combinedScore,
             requiredFTE = projectSkill.minimumFTE,
             actualFTE = totalEffectiveFTE,
             fteThreshold = projectSkill.fteThreshold,
+            requiredProficiency = requiredProficiency,
+            bestTeamProficiency = bestTeamProficiency,
             effectiveAssignments = effectiveAssignments.size,
             totalAssignments = relevantAssignments.size
         )
@@ -103,5 +143,12 @@ class ProjectHealthServiceImpl(
      */
     private fun hasSkill(employeeId: Long, skillId: Long): Boolean {
         return employeeSkillRepository.findByEmployeeIdAndSkillId(employeeId, skillId) != null
+    }
+    
+    /**
+     * Get the proficiency level of an employee for a specific skill
+     */
+    private fun getEmployeeProficiency(employeeId: Long, skillId: Long): Int? {
+        return employeeSkillRepository.findByEmployeeIdAndSkillId(employeeId, skillId)?.proficiencyLevel
     }
 }
