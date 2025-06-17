@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ColumnDef } from "@tanstack/react-table";
 import { MoreHorizontal, Plus, Search } from "lucide-react";
-import { Employee, EmployeeApi } from "@/api";
+import { Employee, EmployeeApi, ProjectAssignmentApi } from "@/api";
 import { Button } from "@/components/ui/Button";
 import { DataTable } from "@/components/ui/DataTable";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -14,16 +14,24 @@ import {
 } from "@/components/ui/DropdownMenu";
 import { toast } from "@/components/ui/useToast";
 import { Input } from "@/components/ui/Input";
+import { Badge } from "@/components/ui/Badge";
 
 export function EmployeeList() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [employeeAllocations, setEmployeeAllocations] = useState<Record<number, number>>({});
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchEmployees();
   }, []);
+
+  useEffect(() => {
+    if (employees.length > 0) {
+      fetchEmployeeAllocations();
+    }
+  }, [employees]);
 
   const fetchEmployees = async () => {
     try {
@@ -39,6 +47,24 @@ export function EmployeeList() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchEmployeeAllocations = async () => {
+    try {
+      const allocationsMap: Record<number, number> = {};
+      
+      for (const employee of employees) {
+        if (employee.id) {
+          const allocation = await ProjectAssignmentApi.getAllocationForEmployee(employee.id);
+          allocationsMap[employee.id] = allocation;
+        }
+      }
+      
+      setEmployeeAllocations(allocationsMap);
+    } catch (error) {
+      console.error("Error fetching employee allocations:", error);
+      // Don't show toast for allocation errors as it's secondary information
     }
   };
 
@@ -107,6 +133,25 @@ export function EmployeeList() {
     {
       accessorKey: "department",
       header: "Department",
+    },
+    {
+      id: "allocation",
+      header: "Current Allocation",
+      cell: ({ row }) => {
+        const employee = row.original;
+        const allocation = employeeAllocations[employee.id!] || 0;
+        return (
+          <Badge 
+            variant={allocation > 100 ? "destructive" : 
+                    allocation === 100 ? "outline" : 
+                    "secondary"}
+            className={`${allocation > 100 ? "text-white" : ""}`}
+          >
+            {allocation}%
+          </Badge>
+        );
+      },
+      size: 150,
     },
     {
       id: "actions",
