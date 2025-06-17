@@ -23,7 +23,7 @@ class Employee(
     
     var department: String? = null,
     
-    @Column(nullable = false)
+    @Column(name = "working_hours_per_week", nullable = false)
     var workingHoursPerWeek: Int = 40,
     
     @OneToMany(mappedBy = "employee", cascade = [CascadeType.ALL], orphanRemoval = true)

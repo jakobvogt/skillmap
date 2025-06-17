@@ -25,10 +25,10 @@ class ProjectSkill(
     @Column
     var minimumProficiencyRequired: Int? = null, // Minimum level required for this skill
     
-    @Column(nullable = false)
+    @Column(name = "minimum_fte", nullable = false)
     var minimumFTE: Double = 1.0, // Minimum total FTE required for this skill
     
-    @Column(nullable = false)
+    @Column(name = "fte_threshold", nullable = false)
     var fteThreshold: Double = 0.4, // Minimum FTE per individual assignment to be effective
     
     @Column(columnDefinition = "TEXT")
