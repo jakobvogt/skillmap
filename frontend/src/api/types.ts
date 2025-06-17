@@ -5,6 +5,7 @@ export interface Employee {
     email: string;
     position?: string;
     department?: string;
+    workingHoursPerWeek: number;
     createdAt?: string;
     updatedAt?: string;
 }
@@ -15,6 +16,7 @@ export interface EmployeeCreateDto {
     email: string;
     position?: string;
     department?: string;
+    workingHoursPerWeek?: number;
 }
 
 export interface EmployeeUpdateDto {
@@ -23,6 +25,7 @@ export interface EmployeeUpdateDto {
     email?: string;
     position?: string;
     department?: string;
+    workingHoursPerWeek?: number;
 }
 
 export interface Skill {
@@ -105,7 +108,8 @@ export interface ProjectSkill {
     skillId: number;
     importance: number;
     minimumProficiencyLevel?: number;
-    numberOfPeopleRequired: number;
+    minimumFTE: number;
+    fteThreshold: number;
     notes?: string;
     skillName?: string;
     createdAt?: string;
@@ -117,14 +121,16 @@ export interface ProjectSkillCreateDto {
     skillId: number;
     importance: number;
     minimumProficiencyRequired?: number;
-    numberOfPeopleRequired: number;
+    minimumFTE: number;
+    fteThreshold: number;
     notes?: string;
 }
 
 export interface ProjectSkillUpdateDto {
     importance?: number;
     minimumProficiencyRequired?: number;
-    numberOfPeopleRequired?: number;
+    minimumFTE?: number;
+    fteThreshold?: number;
     notes?: string;
 }
 

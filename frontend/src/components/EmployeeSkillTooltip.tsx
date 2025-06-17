@@ -26,7 +26,7 @@ export function EmployeeSkillTooltip({ skills, projectSkills }: EmployeeSkillToo
   const skillsByCategory: Record<string, EmployeeSkill[]> = {};
   
   skills.forEach(skill => {
-    const category = skill.category || 'Uncategorized';
+    const category = (skill as any).category || 'Uncategorized';
     if (!skillsByCategory[category]) {
       skillsByCategory[category] = [];
     }
@@ -188,7 +188,7 @@ export function EmployeeSkillTooltip({ skills, projectSkills }: EmployeeSkillToo
 function calculateSkillCoverage(employeeSkills: EmployeeSkill[], projectSkills: ProjectSkill[]): number {
   if (!projectSkills || projectSkills.length === 0) return 0;
   
-  const projectSkillIds = new Set(projectSkills.map(s => s.skillId));
+  // const projectSkillIds = new Set(projectSkills.map(s => s.skillId));
   const employeeSkillIds = new Set(employeeSkills.map(s => s.skillId));
   
   // Check how many project skills the employee has

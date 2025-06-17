@@ -44,7 +44,7 @@ export function ProjectSkillTooltip({ skills }: ProjectSkillTooltipProps) {
   const skillsByCategory: Record<string, ProjectSkill[]> = {};
   
   skills.forEach(skill => {
-    const category = skill.category || 'Uncategorized';
+    const category = (skill as any).category || 'Uncategorized';
     if (!skillsByCategory[category]) {
       skillsByCategory[category] = [];
     }
@@ -72,7 +72,7 @@ export function ProjectSkillTooltip({ skills }: ProjectSkillTooltipProps) {
                       <th className="py-1 px-2 text-left">Skill</th>
                       <th className="py-1 px-2 text-center w-16">Min. Level</th>
                       <th className="py-1 px-2 text-center w-16">Importance</th>
-                      <th className="py-1 px-2 text-center w-16">People</th>
+                      <th className="py-1 px-2 text-center w-16">Min FTE</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -89,7 +89,7 @@ export function ProjectSkillTooltip({ skills }: ProjectSkillTooltipProps) {
                           {renderImportanceLevel(skill.importance)}
                         </td>
                         <td className="py-1 px-2 text-center">
-                          {skill.numberOfPeopleRequired || 0}
+                          {skill.minimumFTE || 0}
                         </td>
                       </tr>
                     ))}
@@ -108,7 +108,7 @@ export function ProjectSkillTooltip({ skills }: ProjectSkillTooltipProps) {
                 <th className="py-1 px-2 text-left">Skill</th>
                 <th className="py-1 px-2 text-center w-16">Min. Level</th>
                 <th className="py-1 px-2 text-center w-16">Importance</th>
-                <th className="py-1 px-2 text-center w-16">People</th>
+                <th className="py-1 px-2 text-center w-16">Min FTE</th>
               </tr>
             </thead>
             <tbody>
@@ -125,7 +125,7 @@ export function ProjectSkillTooltip({ skills }: ProjectSkillTooltipProps) {
                     {renderImportanceLevel(skill.importance)}
                   </td>
                   <td className="py-1 px-2 text-center">
-                    {skill.numberOfPeopleRequired || 0}
+                    {skill.minimumFTE || 0}
                   </td>
                 </tr>
               ))}

@@ -47,12 +47,13 @@ export function ProjectDetail() {
   const isNewProject = id === "new" || id === undefined;
   const [loading, setLoading] = useState(!isNewProject);
   const [projectSkills, setProjectSkills] = useState<ProjectSkill[]>([]);
-  const [pendingSkills, setPendingSkills] = useState<{skillId: number, skillName: string, importance: number, minimumProficiencyRequired: number, numberOfPeopleRequired: number}[]>([]);
+  const [pendingSkills, setPendingSkills] = useState<{skillId: number, skillName: string, importance: number, minimumProficiencyRequired: number, minimumFTE: number, fteThreshold: number}[]>([]);
   const [availableSkills, setAvailableSkills] = useState<Skill[]>([]);
   const [selectedSkill, setSelectedSkill] = useState<string>("");
   const [importance, setImportance] = useState<string>("3");
   const [minProficiency, setMinProficiency] = useState<string>("2");
-  const [peopleRequired, setPeopleRequired] = useState<string>("1");
+  const [minimumFTE, setMinimumFTE] = useState<string>("1.0");
+  const [fteThreshold, setFteThreshold] = useState<string>("0.4");
 
   // Initialize form with react-hook-form
   const {
@@ -154,7 +155,8 @@ export function ProjectDetail() {
             skillId: skill.skillId,
             importance: skill.importance,
             minimumProficiencyRequired: skill.minimumProficiencyRequired,
-            numberOfPeopleRequired: skill.numberOfPeopleRequired,
+            minimumFTE: skill.minimumFTE,
+            fteThreshold: skill.fteThreshold,
           };
           await ProjectSkillApi.create(skillToAdd);
         }
@@ -210,7 +212,8 @@ export function ProjectDetail() {
           skillId: skillId,
           importance: parseInt(importance),
           minimumProficiencyRequired: parseInt(minProficiency),
-          numberOfPeopleRequired: parseInt(peopleRequired),
+          minimumFTE: parseFloat(minimumFTE),
+          fteThreshold: parseFloat(fteThreshold),
         };
 
         const newSkill = await ProjectSkillApi.create(skillToAdd);
@@ -244,7 +247,8 @@ export function ProjectDetail() {
             skillName,
             importance: parseInt(importance),
             minimumProficiencyRequired: parseInt(minProficiency),
-            numberOfPeopleRequired: parseInt(peopleRequired)
+            minimumFTE: parseFloat(minimumFTE),
+            fteThreshold: parseFloat(fteThreshold)
           }
         ]);
         
@@ -258,7 +262,8 @@ export function ProjectDetail() {
       setSelectedSkill("");
       setImportance("3");
       setMinProficiency("2");
-      setPeopleRequired("1");
+      setMinimumFTE("1.0");
+      setFteThreshold("0.4");
       
     } catch (error) {
       console.error("Error adding skill:", error);
@@ -464,14 +469,29 @@ export function ProjectDetail() {
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="peopleRequired">Number of People Required</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="minimumFTE">Minimum FTE Required</Label>
                   <Input
-                    id="peopleRequired"
+                    id="minimumFTE"
                     type="number"
-                    min="1"
-                    value={peopleRequired}
-                    onChange={(e) => setPeopleRequired(e.target.value)}
+                    min="0.1"
+                    step="0.1"
+                    value={minimumFTE}
+                    onChange={(e) => setMinimumFTE(e.target.value)}
+                    placeholder="e.g. 1.0"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="fteThreshold">FTE Threshold</Label>
+                  <Input
+                    id="fteThreshold"
+                    type="number"
+                    min="0.1"
+                    max="1.0"
+                    step="0.1"
+                    value={fteThreshold}
+                    onChange={(e) => setFteThreshold(e.target.value)}
+                    placeholder="e.g. 0.4"
                   />
                 </div>
                 <div className="flex items-end md:col-span-2">
@@ -489,7 +509,8 @@ export function ProjectDetail() {
                       <TableHead>Skill</TableHead>
                       <TableHead>Importance</TableHead>
                       <TableHead>Min. Proficiency</TableHead>
-                      <TableHead>People Required</TableHead>
+                      <TableHead>Min FTE</TableHead>
+                      <TableHead>FTE Threshold</TableHead>
                       <TableHead className="w-24">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -497,7 +518,7 @@ export function ProjectDetail() {
                     {isNewProject ? (
                       pendingSkills.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={5} className="h-24 text-center">
+                          <TableCell colSpan={6} className="h-24 text-center">
                             No skill requirements added yet.
                           </TableCell>
                         </TableRow>
@@ -507,7 +528,8 @@ export function ProjectDetail() {
                             <TableCell>{skill.skillName}</TableCell>
                             <TableCell>{skill.importance}</TableCell>
                             <TableCell>{skill.minimumProficiencyRequired}</TableCell>
-                            <TableCell>{skill.numberOfPeopleRequired}</TableCell>
+                            <TableCell>{skill.minimumFTE}</TableCell>
+                            <TableCell>{skill.fteThreshold}</TableCell>
                             <TableCell>
                               <Button
                                 variant="ghost"
@@ -524,7 +546,7 @@ export function ProjectDetail() {
                     ) : (
                       projectSkills.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={5} className="h-24 text-center">
+                          <TableCell colSpan={6} className="h-24 text-center">
                             No skill requirements added yet.
                           </TableCell>
                         </TableRow>
@@ -534,7 +556,8 @@ export function ProjectDetail() {
                             <TableCell>{skill.skillName}</TableCell>
                             <TableCell>{skill.importance}</TableCell>
                             <TableCell>{skill.minimumProficiencyLevel || "-"}</TableCell>
-                            <TableCell>{skill.numberOfPeopleRequired}</TableCell>
+                            <TableCell>{skill.minimumFTE}</TableCell>
+                            <TableCell>{skill.fteThreshold}</TableCell>
                             <TableCell>
                               <Button
                                 variant="ghost"
