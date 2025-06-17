@@ -25,8 +25,11 @@ class ProjectSkill(
     @Column
     var minimumProficiencyRequired: Int? = null, // Minimum level required for this skill
     
-    @Column
-    var numberOfPeopleRequired: Int = 1, // Number of people with this skill needed
+    @Column(nullable = false)
+    var minimumFTE: Double = 1.0, // Minimum total FTE required for this skill
+    
+    @Column(nullable = false)
+    var fteThreshold: Double = 0.4, // Minimum FTE per individual assignment to be effective
     
     @Column(columnDefinition = "TEXT")
     var notes: String? = null,

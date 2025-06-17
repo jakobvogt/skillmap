@@ -23,6 +23,9 @@ class Employee(
     
     var department: String? = null,
     
+    @Column(nullable = false)
+    var workingHoursPerWeek: Int = 40,
+    
     @OneToMany(mappedBy = "employee", cascade = [CascadeType.ALL], orphanRemoval = true)
     val skills: MutableSet<EmployeeSkill> = mutableSetOf(),
     
@@ -34,4 +37,11 @@ class Employee(
     
     @Column(nullable = false)
     var updatedAt: LocalDateTime = LocalDateTime.now()
-)
+) {
+    /**
+     * Calculate the maximum FTE (Full-Time Equivalent) this employee can be allocated.
+     * Based on their working hours per week compared to standard 40-hour work week.
+     */
+    val maxFTE: Double
+        get() = workingHoursPerWeek / 40.0
+}

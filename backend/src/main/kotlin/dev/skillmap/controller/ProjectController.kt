@@ -4,6 +4,9 @@ import dev.skillmap.dto.ProjectCreateDto
 import dev.skillmap.dto.ProjectDto
 import dev.skillmap.dto.ProjectUpdateDto
 import dev.skillmap.service.ProjectService
+import dev.skillmap.service.ProjectHealthService
+import dev.skillmap.service.ProjectHealthDto
+import java.time.LocalDate
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
@@ -11,7 +14,10 @@ import org.springframework.web.bind.annotation.*
 @RestController
 @RequestMapping("/api/projects")
 @CrossOrigin(origins = ["http://localhost:3000"])
-class ProjectController(private val projectService: ProjectService) {
+class ProjectController(
+    private val projectService: ProjectService,
+    private val projectHealthService: ProjectHealthService
+) {
 
     @GetMapping
     fun getAllProjects(): ResponseEntity<List<ProjectDto>> {
@@ -51,5 +57,14 @@ class ProjectController(private val projectService: ProjectService) {
     @GetMapping("/search")
     fun searchProjects(@RequestParam query: String): ResponseEntity<List<ProjectDto>> {
         return ResponseEntity.ok(projectService.searchProjects(query))
+    }
+
+    @GetMapping("/{id}/health")
+    fun getProjectHealth(
+        @PathVariable id: Long,
+        @RequestParam(required = false) date: LocalDate?
+    ): ResponseEntity<ProjectHealthDto> {
+        val targetDate = date ?: LocalDate.now()
+        return ResponseEntity.ok(projectHealthService.calculateProjectHealth(id, targetDate))
     }
 }

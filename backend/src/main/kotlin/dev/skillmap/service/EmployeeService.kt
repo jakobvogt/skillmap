@@ -41,7 +41,8 @@ class EmployeeServiceImpl(
             lastName = employeeCreateDto.lastName,
             email = employeeCreateDto.email,
             position = employeeCreateDto.position,
-            department = employeeCreateDto.department
+            department = employeeCreateDto.department,
+            workingHoursPerWeek = employeeCreateDto.workingHoursPerWeek
         )
         return employeeRepository.save(employee).toDto()
     }
@@ -55,6 +56,7 @@ class EmployeeServiceImpl(
         employeeUpdateDto.email?.let { employee.email = it }
         employeeUpdateDto.position?.let { employee.position = it }
         employeeUpdateDto.department?.let { employee.department = it }
+        employeeUpdateDto.workingHoursPerWeek?.let { employee.workingHoursPerWeek = it }
         employee.updatedAt = LocalDateTime.now()
 
         return employeeRepository.save(employee).toDto()
@@ -80,6 +82,8 @@ class EmployeeServiceImpl(
             email = this.email,
             position = this.position,
             department = this.department,
+            workingHoursPerWeek = this.workingHoursPerWeek,
+            maxFTE = this.maxFTE,
             createdAt = this.createdAt,
             updatedAt = this.updatedAt
         )

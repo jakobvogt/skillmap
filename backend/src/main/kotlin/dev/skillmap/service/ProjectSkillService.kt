@@ -58,7 +58,8 @@ class ProjectSkillServiceImpl(
             skill = skill,
             importance = projectSkillCreateDto.importance,
             minimumProficiencyRequired = projectSkillCreateDto.minimumProficiencyRequired,
-            numberOfPeopleRequired = projectSkillCreateDto.numberOfPeopleRequired,
+            minimumFTE = projectSkillCreateDto.minimumFTE,
+            fteThreshold = projectSkillCreateDto.fteThreshold,
             notes = projectSkillCreateDto.notes
         )
         
@@ -71,7 +72,8 @@ class ProjectSkillServiceImpl(
 
         projectSkillUpdateDto.importance?.let { projectSkill.importance = it }
         projectSkillUpdateDto.minimumProficiencyRequired?.let { projectSkill.minimumProficiencyRequired = it }
-        projectSkillUpdateDto.numberOfPeopleRequired?.let { projectSkill.numberOfPeopleRequired = it }
+        projectSkillUpdateDto.minimumFTE?.let { projectSkill.minimumFTE = it }
+        projectSkillUpdateDto.fteThreshold?.let { projectSkill.fteThreshold = it }
         projectSkillUpdateDto.notes?.let { projectSkill.notes = it }
         projectSkill.updatedAt = LocalDateTime.now()
 
@@ -92,7 +94,8 @@ class ProjectSkillServiceImpl(
             skillId = this.skill.id!!,
             importance = this.importance,
             minimumProficiencyRequired = this.minimumProficiencyRequired,
-            numberOfPeopleRequired = this.numberOfPeopleRequired,
+            minimumFTE = this.minimumFTE,
+            fteThreshold = this.fteThreshold,
             skillName = this.skill.name,
             notes = this.notes,
             createdAt = this.createdAt,
