@@ -52,8 +52,8 @@ export function EmployeeSkillTooltip({ skills, projectSkills }: EmployeeSkillToo
     const projectSkill = projectSkillMap[employeeSkill.skillId];
     if (!projectSkill) return null;
     
-    const meetsRequirement = !projectSkill.minimumProficiencyLevel || 
-      employeeSkill.proficiencyLevel >= projectSkill.minimumProficiencyLevel;
+    const meetsRequirement = !projectSkill.minimumProficiencyRequired || 
+      employeeSkill.proficiencyLevel >= projectSkill.minimumProficiencyRequired;
     
     return {
       meetsRequirement,
@@ -200,7 +200,7 @@ function calculateSkillCoverage(employeeSkills: EmployeeSkill[], projectSkills: 
       requiredSkills++;
       if (employeeSkillIds.has(ps.skillId)) {
         const empSkill = employeeSkills.find(es => es.skillId === ps.skillId);
-        if (empSkill && (!ps.minimumProficiencyLevel || empSkill.proficiencyLevel >= ps.minimumProficiencyLevel)) {
+        if (empSkill && (!ps.minimumProficiencyRequired || empSkill.proficiencyLevel >= ps.minimumProficiencyRequired)) {
           matchedSkills++;
         }
       }

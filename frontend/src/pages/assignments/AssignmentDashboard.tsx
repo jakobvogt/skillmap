@@ -138,12 +138,15 @@ export function AssignmentDashboard() {
   }, [employees, searchEmployee]);
 
   useEffect(() => {
-    // Refetch assignments and allocations when date changes
+    // Refetch assignments, allocations, and project health when date changes
     if (employees.length > 0) {
       fetchAllAssignments();
       fetchAllEmployeeAllocations();
     }
-  }, [selectedDate, employees]);
+    if (projects.length > 0) {
+      fetchAllProjectHealth();
+    }
+  }, [selectedDate, employees, projects]);
 
   const fetchProjects = async () => {
     try {
@@ -504,12 +507,15 @@ export function AssignmentDashboard() {
     setHoveredCell(null);
   };
   
-  // Also refresh allocations when assignments change
+  // Also refresh allocations and project health when assignments change
   useEffect(() => {
     if (assignments.length > 0 && employees.length > 0) {
       fetchAllEmployeeAllocations();
     }
-  }, [assignments]);
+    if (assignments.length > 0 && projects.length > 0) {
+      fetchAllProjectHealth();
+    }
+  }, [assignments, employees, projects]);
 
   // Helper function to get allocation background color
   const getAllocationBackgroundColor = (allocation: number) => {
@@ -565,8 +571,8 @@ export function AssignmentDashboard() {
       if (employeeFTE < projectSkill.fteThreshold) return false;
       
       // Check proficiency requirement (if any)
-      if (projectSkill.minimumProficiencyLevel && 
-          employeeSkill.proficiencyLevel < projectSkill.minimumProficiencyLevel) {
+      if (projectSkill.minimumProficiencyRequired && 
+          employeeSkill.proficiencyLevel < projectSkill.minimumProficiencyRequired) {
         return false;
       }
       

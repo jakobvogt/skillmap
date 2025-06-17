@@ -107,7 +107,7 @@ export interface ProjectSkill {
     projectId: number;
     skillId: number;
     importance: number;
-    minimumProficiencyLevel?: number;
+    minimumProficiencyRequired?: number;
     minimumFTE: number;
     fteThreshold: number;
     notes?: string;

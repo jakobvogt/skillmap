@@ -452,7 +452,7 @@ export function ProjectDetail() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="minLevel">Min. Proficiency (1-5)</Label>
+                  <Label htmlFor="minLevel">Min Proficiency Threshold (1-5)</Label>
                   <Select value={minProficiency} onValueChange={setMinProficiency}>
                     <SelectTrigger>
                       <SelectValue placeholder="Level" />
@@ -508,7 +508,7 @@ export function ProjectDetail() {
                     <TableRow>
                       <TableHead>Skill</TableHead>
                       <TableHead>Importance</TableHead>
-                      <TableHead>Min. Proficiency</TableHead>
+                      <TableHead>Min Proficiency Threshold</TableHead>
                       <TableHead>Min FTE</TableHead>
                       <TableHead>FTE Threshold</TableHead>
                       <TableHead className="w-24">Actions</TableHead>
@@ -555,7 +555,7 @@ export function ProjectDetail() {
                           <TableRow key={skill.id}>
                             <TableCell>{skill.skillName}</TableCell>
                             <TableCell>{skill.importance}</TableCell>
-                            <TableCell>{skill.minimumProficiencyLevel || "-"}</TableCell>
+                            <TableCell>{skill.minimumProficiencyRequired || "-"}</TableCell>
                             <TableCell>{skill.minimumFTE}</TableCell>
                             <TableCell>{skill.fteThreshold}</TableCell>
                             <TableCell>

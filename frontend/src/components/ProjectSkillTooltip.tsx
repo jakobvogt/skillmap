@@ -70,7 +70,7 @@ export function ProjectSkillTooltip({ skills }: ProjectSkillTooltipProps) {
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="py-1 px-2 text-left">Skill</th>
-                      <th className="py-1 px-2 text-center w-16">Min. Level</th>
+                      <th className="py-1 px-2 text-center w-20">Min Proficiency Threshold</th>
                       <th className="py-1 px-2 text-center w-16">Importance</th>
                       <th className="py-1 px-2 text-center w-16">Min FTE</th>
                     </tr>
@@ -80,8 +80,8 @@ export function ProjectSkillTooltip({ skills }: ProjectSkillTooltipProps) {
                       <tr key={skill.id} className="border-t">
                         <td className="py-1 px-2 font-medium">{skill.skillName}</td>
                         <td className="py-1 px-2 text-center">
-                          {skill.minimumProficiencyLevel 
-                            ? renderProficiencyStars(skill.minimumProficiencyLevel)
+                          {skill.minimumProficiencyRequired 
+                            ? renderProficiencyStars(skill.minimumProficiencyRequired)
                             : <span className="text-gray-400">None</span>
                           }
                         </td>
@@ -106,7 +106,7 @@ export function ProjectSkillTooltip({ skills }: ProjectSkillTooltipProps) {
             <thead className="bg-gray-50">
               <tr>
                 <th className="py-1 px-2 text-left">Skill</th>
-                <th className="py-1 px-2 text-center w-16">Min. Level</th>
+                <th className="py-1 px-2 text-center w-20">Min Proficiency Threshold</th>
                 <th className="py-1 px-2 text-center w-16">Importance</th>
                 <th className="py-1 px-2 text-center w-16">Min FTE</th>
               </tr>
@@ -116,8 +116,8 @@ export function ProjectSkillTooltip({ skills }: ProjectSkillTooltipProps) {
                 <tr key={skill.id} className="border-t">
                   <td className="py-1 px-2 font-medium">{skill.skillName}</td>
                   <td className="py-1 px-2 text-center">
-                    {skill.minimumProficiencyLevel 
-                      ? renderProficiencyStars(skill.minimumProficiencyLevel)
+                    {skill.minimumProficiencyRequired 
+                      ? renderProficiencyStars(skill.minimumProficiencyRequired)
                       : <span className="text-gray-400">None</span>
                     }
                   </td>
