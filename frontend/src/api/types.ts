@@ -192,3 +192,18 @@ export interface SkillCoverageDto {
     effectiveAssignments: number;
     totalAssignments: number;
 }
+
+export interface AssignmentMetricsDto {
+    calculationDate: string;
+    organizationHealthScore?: number;
+    totalActiveProjects: number;
+    resourceUtilization: ResourceUtilizationDto;
+}
+
+export interface ResourceUtilizationDto {
+    averageUtilization: number;
+    totalEmployees: number;
+    overAllocatedCount: number;
+    underUtilizedCount: number;
+    fullyUtilizedCount: number;
+}

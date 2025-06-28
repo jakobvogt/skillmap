@@ -18,6 +18,7 @@ import {
     ProjectAssignmentCreateDto,
     ProjectAssignmentUpdateDto,
     ProjectHealthDto,
+    AssignmentMetricsDto,
   } from './types';
   
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
@@ -151,4 +152,10 @@ import {
       fetchApi(`/project-assignments/employee/${employeeId}/allocation${date ? `?date=${date}` : ''}`),
     getActive: (date?: string): Promise<ProjectAssignment[]> =>
       fetchApi(`/project-assignments/active${date ? `?date=${date}` : ''}`),
+  };
+  
+  // Assignment Metrics API
+  export const AssignmentMetricsApi = {
+    getMetrics: (date?: string): Promise<AssignmentMetricsDto> =>
+      fetchApi(`/assignment-metrics${date ? `?date=${date}` : ''}`),
   };
