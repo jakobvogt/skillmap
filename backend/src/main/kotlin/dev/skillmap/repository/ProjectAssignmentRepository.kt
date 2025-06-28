@@ -59,4 +59,17 @@ interface ProjectAssignmentRepository : JpaRepository<ProjectAssignment, Long> {
         AND pa.project.status NOT IN ('COMPLETED', 'CANCELLED')
     """)
     fun findActiveAssignments(@Param("date") date: LocalDate): List<ProjectAssignment>
+    
+    // Calculate utilization for all employees on a specific date
+    @Query("""
+        SELECT pa.employee.id, COALESCE(SUM(pa.allocationPercentage), 0)
+        FROM ProjectAssignment pa
+        WHERE (
+            (pa.startDate IS NULL AND pa.endDate IS NULL) OR
+            (pa.startDate <= :date AND (pa.endDate IS NULL OR pa.endDate >= :date))
+        )
+        AND pa.project.status NOT IN ('COMPLETED', 'CANCELLED')
+        GROUP BY pa.employee.id
+    """)
+    fun calculateEmployeeUtilizations(@Param("date") date: LocalDate): List<Array<Any>>
 }
