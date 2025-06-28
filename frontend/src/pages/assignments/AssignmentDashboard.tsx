@@ -30,6 +30,7 @@ import { ProjectSkillTooltip } from "@/components/ProjectSkillTooltip";
 import { EmployeeSkillTooltip } from "@/components/EmployeeSkillTooltip";
 import { ProjectHealthIndicator, getHealthBackgroundColor, getHealthBorderColor } from "@/components/ProjectHealthIndicator";
 import { ProjectHealthTooltip } from "@/components/ProjectHealthTooltip";
+import { AssignmentMetrics } from "@/components/AssignmentMetrics";
 import { cn } from "@/lib/utils";
 
 export function AssignmentDashboard() {
@@ -608,6 +609,9 @@ export function AssignmentDashboard() {
           </div>
         ) : (
           <div className="mt-6">
+            {/* Assignment Metrics */}
+            <AssignmentMetrics date={selectedDate} className="mb-6" />
+
             {/* Date Filter */}
             <Card className="mb-6">
               <CardHeader>
