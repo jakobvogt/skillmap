@@ -46,7 +46,7 @@ export const AssignmentMetrics = forwardRef<AssignmentMetricsRef, AssignmentMetr
     if (!score && score !== 0) return "text-muted-foreground";
     if (score >= 80) return "text-green-600";
     if (score >= 60) return "text-yellow-600";
-    return "text-red-600";
+    return "text-white"; // White text for red background (destructive variant)
   };
 
   const getHealthBadgeVariant = (score?: number) => {
