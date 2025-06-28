@@ -48,6 +48,7 @@ export function AssignmentList() {
   // Auto-matching state
   const [autoMatchDialogOpen, setAutoMatchDialogOpen] = useState(false);
   const [autoMatchProjectId, setAutoMatchProjectId] = useState<string>("");
+  const [autoMatching, setAutoMatching] = useState(false);
   
   const projectId = searchParams.get("projectId") || "";
 
@@ -253,23 +254,51 @@ export function AssignmentList() {
   };
 
   const handleRunAutoMatch = async () => {
-    // This is a placeholder for the auto-matching algorithm
-    // In a real implementation, this would call a backend endpoint that handles the matching logic
+    if (!autoMatchProjectId) {
+      toast({
+        title: "Validation Error",
+        description: "Please select a project for auto-matching",
+        variant: "destructive",
+      });
+      return;
+    }
     
     try {
-      toast({
-        title: "Info",
-        description: "Auto-matching is not implemented in this version. This would use an algorithm to match employees to projects based on skills.",
-      });
+      setAutoMatching(true);
+      const assignments = await ProjectAssignmentApi.autoAssign(parseInt(autoMatchProjectId));
+      
+      if (assignments.length === 0) {
+        toast({
+          title: "No Assignments",
+          description: "No eligible employees found for auto-assignment to this project",
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: `Successfully created ${assignments.length} automatic assignment${assignments.length > 1 ? 's' : ''}`,
+        });
+        
+        // Refresh assignments list
+        if (projectId === autoMatchProjectId) {
+          // If we're viewing the same project, refresh project assignments
+          fetchAssignmentsByProject(autoMatchProjectId);
+        } else {
+          // Otherwise, refresh all assignments
+          fetchAllAssignments();
+        }
+      }
       
       setAutoMatchDialogOpen(false);
+      setAutoMatchProjectId("");
     } catch (error) {
       console.error("Error in auto-matching:", error);
       toast({
         title: "Error",
-        description: "Failed to run auto-matching",
+        description: "Failed to run auto-matching. Please ensure the project has skill requirements defined.",
         variant: "destructive",
       });
+    } finally {
+      setAutoMatching(false);
     }
   };
 
@@ -575,8 +604,8 @@ export function AssignmentList() {
             <Button variant="outline" onClick={() => setAutoMatchDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleRunAutoMatch}>
-              Run Auto-Matching
+            <Button onClick={handleRunAutoMatch} disabled={autoMatching || !autoMatchProjectId}>
+              {autoMatching ? "Auto-Matching..." : "Run Auto-Matching"}
             </Button>
           </DialogFooter>
         </DialogContent>
