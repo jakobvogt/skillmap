@@ -92,53 +92,49 @@ export function Dashboard() {
 
   return (
     <div className="space-y-8">
+      {/* Auto-assignment quick action */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Zap className="h-5 w-5 text-yellow-500" />
+            Quick Auto-Assignment
+          </CardTitle>
+          <CardDescription>
+            Automatically assign employees to a project based on skills and availability
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-4">
+            <div className="flex-1">
+              <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a project to auto-assign..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {projects
+                    .filter(p => p.status === "PLANNED" || p.status === "IN_PROGRESS")
+                    .map((project) => (
+                      <SelectItem key={project.id} value={project.id!.toString()}>
+                        {project.name} ({project.status})
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button 
+              onClick={() => setAutoAssignDialogOpen(true)} 
+              disabled={!selectedProjectId}
+              className="bg-yellow-600 hover:bg-yellow-700"
+            >
+              <Zap className="mr-2 h-4 w-4" />
+              Auto Assign
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Main assignment dashboard */}
       <AssignmentDashboard />
-
-      {/* Auto-assignment quick action */}
-      <div>
-        <div className="border-t pt-8">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Zap className="h-5 w-5 text-yellow-500" />
-                Quick Auto-Assignment
-              </CardTitle>
-              <CardDescription>
-                Automatically assign employees to a project based on skills and availability
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-4">
-                <div className="flex-1">
-                  <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a project to auto-assign..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {projects
-                        .filter(p => p.status === "PLANNED" || p.status === "IN_PROGRESS")
-                        .map((project) => (
-                          <SelectItem key={project.id} value={project.id!.toString()}>
-                            {project.name} ({project.status})
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button 
-                  onClick={() => setAutoAssignDialogOpen(true)} 
-                  disabled={!selectedProjectId}
-                  className="bg-yellow-600 hover:bg-yellow-700"
-                >
-                  <Zap className="mr-2 h-4 w-4" />
-                  Auto Assign
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
 
       {/* Basic statistics section at the bottom */}
       <div>
