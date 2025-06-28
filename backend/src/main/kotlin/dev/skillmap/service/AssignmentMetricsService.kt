@@ -4,6 +4,7 @@ import dev.skillmap.dto.AssignmentMetricsDto
 import dev.skillmap.dto.ResourceUtilizationDto
 import dev.skillmap.repository.ProjectAssignmentRepository
 import dev.skillmap.repository.ProjectRepository
+import dev.skillmap.repository.EmployeeRepository
 import org.springframework.stereotype.Service
 import java.time.LocalDate
 
@@ -11,30 +12,32 @@ import java.time.LocalDate
 class AssignmentMetricsService(
     private val projectRepository: ProjectRepository,
     private val projectAssignmentRepository: ProjectAssignmentRepository,
+    private val employeeRepository: EmployeeRepository,
     private val projectHealthService: ProjectHealthService
 ) {
     
     fun calculateAssignmentMetrics(date: LocalDate = LocalDate.now()): AssignmentMetricsDto {
-        val activeProjects = projectRepository.findProjectsWithActiveAssignments(date)
-        val organizationHealthScore = calculateOrganizationHealthScore(activeProjects, date)
+        val inProgressProjects = projectRepository.findByStatus("IN_PROGRESS").map { it.id!! }
+        val organizationHealthScore = calculateOrganizationHealthScore(inProgressProjects, date)
         val resourceUtilization = calculateResourceUtilization(date)
         
         return AssignmentMetricsDto(
             calculationDate = date,
             organizationHealthScore = organizationHealthScore,
-            totalActiveProjects = activeProjects.size,
+            totalActiveProjects = inProgressProjects.size,
             resourceUtilization = resourceUtilization
         )
     }
     
-    private fun calculateOrganizationHealthScore(activeProjects: List<Long>, date: LocalDate): Double? {
-        if (activeProjects.isEmpty()) return null
+    private fun calculateOrganizationHealthScore(inProgressProjects: List<Long>, date: LocalDate): Double? {
+        if (inProgressProjects.isEmpty()) return null
         
-        val healthScores = activeProjects.mapNotNull { projectId ->
+        val healthScores = inProgressProjects.mapNotNull { projectId ->
             try {
                 projectHealthService.calculateProjectHealth(projectId, date).overallHealthScore
             } catch (e: Exception) {
-                null // Skip projects that can't calculate health
+                // For projects without assignments, return 0% health instead of null
+                0.0
             }
         }
         
@@ -46,24 +49,32 @@ class AssignmentMetricsService(
     }
     
     private fun calculateResourceUtilization(date: LocalDate): ResourceUtilizationDto {
-        val employeeUtilizationResults = projectAssignmentRepository.calculateEmployeeUtilizations(date)
+        // Get all employees
+        val allEmployees = employeeRepository.findAll().map { it.id!! }
         
-        val employeeUtilizations = employeeUtilizationResults.associate { result ->
+        // Get utilizations for employees with assignments
+        val employeeUtilizationResults = projectAssignmentRepository.calculateEmployeeUtilizations(date)
+        val employeeUtilizationsWithAssignments = employeeUtilizationResults.associate { result ->
             val employeeId = result[0] as Long
             val totalAllocation = (result[1] as Number).toDouble()
             employeeId to totalAllocation
         }
         
-        val totalEmployees = employeeUtilizations.size
+        // Create full utilization map including employees with 0% allocation
+        val allEmployeeUtilizations = allEmployees.associateWith { employeeId ->
+            employeeUtilizationsWithAssignments[employeeId] ?: 0.0
+        }
+        
+        val totalEmployees = allEmployeeUtilizations.size
         val averageUtilization = if (totalEmployees > 0) {
-            employeeUtilizations.values.average()
+            allEmployeeUtilizations.values.average()
         } else {
             0.0
         }
         
-        val overAllocatedCount = employeeUtilizations.values.count { it > 100.0 }
-        val underUtilizedCount = employeeUtilizations.values.count { it < 40.0 }
-        val fullyUtilizedCount = employeeUtilizations.values.count { it in 80.0..100.0 }
+        val overAllocatedCount = allEmployeeUtilizations.values.count { it > 100.0 }
+        val underUtilizedCount = allEmployeeUtilizations.values.count { it < 40.0 }
+        val fullyUtilizedCount = allEmployeeUtilizations.values.count { it in 80.0..100.0 }
         
         return ResourceUtilizationDto(
             averageUtilization = averageUtilization,
