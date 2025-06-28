@@ -21,7 +21,7 @@ import { Label } from "@/components/ui/Label";
 import { toast } from "@/components/ui/useToast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/Dialog";
-import { Plus, Trash, Table2 } from "lucide-react";
+import { Plus, Trash, Table2, Zap, Globe } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/Select";
 import { TooltipProvider } from "@/components/ui/Tooltip";
@@ -77,6 +77,13 @@ export function AssignmentDashboard() {
   const [draggedEmployee, setDraggedEmployee] = useState<Employee | null>(null);
   const [draggedProject, setDraggedProject] = useState<Project | null>(null);
   const [hoveredCell, setHoveredCell] = useState<{projectId: number, employeeId: number} | null>(null);
+
+  // State for auto-assignment
+  const [autoAssignDialogOpen, setAutoAssignDialogOpen] = useState(false);
+  const [globalAutoAssignDialogOpen, setGlobalAutoAssignDialogOpen] = useState(false);
+  const [selectedAutoAssignProjectId, setSelectedAutoAssignProjectId] = useState<string>("");
+  const [autoAssigning, setAutoAssigning] = useState(false);
+  const [globalAutoAssigning, setGlobalAutoAssigning] = useState(false);
 
   useEffect(() => {
     // Fetch all data on component mount
@@ -593,6 +600,97 @@ export function AssignmentDashboard() {
     });
   };
 
+  // Refresh all data after auto-assignment
+  const refreshAllData = async () => {
+    try {
+      await Promise.all([
+        fetchAllAssignments(),
+        fetchAllEmployeeAllocations(),
+        fetchAllProjectHealth()
+      ]);
+      // Refresh assignment metrics
+      assignmentMetricsRef.current?.refresh();
+    } catch (error) {
+      console.error("Error refreshing data:", error);
+    }
+  };
+
+  const handleAutoAssign = async () => {
+    if (!selectedAutoAssignProjectId) {
+      toast({
+        title: "Validation Error",
+        description: "Please select a project for auto-assignment",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    try {
+      setAutoAssigning(true);
+      const assignments = await ProjectAssignmentApi.autoAssign(parseInt(selectedAutoAssignProjectId));
+      
+      if (assignments.length === 0) {
+        toast({
+          title: "No Assignments",
+          description: "No eligible employees found for auto-assignment to this project",
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: `Successfully created ${assignments.length} automatic assignment${assignments.length > 1 ? 's' : ''}`,
+        });
+        
+        // Refresh all data
+        await refreshAllData();
+      }
+      
+      setAutoAssignDialogOpen(false);
+      setSelectedAutoAssignProjectId("");
+    } catch (error) {
+      console.error("Error in auto-assignment:", error);
+      toast({
+        title: "Error",
+        description: "Failed to run auto-assignment. Please ensure the project has skill requirements defined.",
+        variant: "destructive",
+      });
+    } finally {
+      setAutoAssigning(false);
+    }
+  };
+
+  const handleGlobalAutoAssign = async () => {
+    try {
+      setGlobalAutoAssigning(true);
+      const assignments = await ProjectAssignmentApi.globalAutoAssign();
+      
+      if (assignments.length === 0) {
+        toast({
+          title: "No Assignments",
+          description: "No optimal employee-project matches found for global auto-assignment",
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: `Successfully created ${assignments.length} optimal assignment${assignments.length > 1 ? 's' : ''} across all projects`,
+        });
+        
+        // Refresh all data
+        await refreshAllData();
+      }
+      
+      setGlobalAutoAssignDialogOpen(false);
+    } catch (error) {
+      console.error("Error in global auto-assignment:", error);
+      toast({
+        title: "Error",
+        description: "Failed to run global auto-assignment. Please ensure projects have skill requirements defined.",
+        variant: "destructive",
+      });
+    } finally {
+      setGlobalAutoAssigning(false);
+    }
+  };
+
   return (
     <TooltipProvider>
       <div className="container mx-auto">
@@ -610,6 +708,20 @@ export function AssignmentDashboard() {
               <Button onClick={() => setDialogOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" />
                 New Assignment
+              </Button>
+              <Button 
+                onClick={() => setGlobalAutoAssignDialogOpen(true)}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                <Globe className="mr-2 h-4 w-4" />
+                Auto Assign All
+              </Button>
+              <Button 
+                onClick={() => setAutoAssignDialogOpen(true)}
+                className="bg-yellow-600 hover:bg-yellow-700"
+              >
+                <Zap className="mr-2 h-4 w-4" />
+                Auto Assign Project
               </Button>
             </div>
           }
@@ -1036,6 +1148,114 @@ export function AssignmentDashboard() {
               </Button>
               <Button onClick={handleSubmitAssignment}>
                 {isEditing ? "Update" : "Create"} Assignment
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Single Project Auto Assignment Dialog */}
+        <Dialog open={autoAssignDialogOpen} onOpenChange={setAutoAssignDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Auto-Assign to Project</DialogTitle>
+              <DialogDescription>
+                Select a project to automatically assign employees based on skill requirements and availability.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="autoAssignProject">Select Project</Label>
+                  <Select value={selectedAutoAssignProjectId} onValueChange={setSelectedAutoAssignProjectId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a project to auto-assign..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {projects
+                        .filter(p => p.status === "PLANNED" || p.status === "IN_PROGRESS")
+                        .map((project) => (
+                          <SelectItem key={project.id} value={project.id!.toString()}>
+                            {project.name} ({project.status})
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2 text-sm text-muted-foreground">
+                  <p>The algorithm will:</p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Analyze project skill requirements</li>
+                    <li>Match employees based on proficiency levels</li>
+                    <li>Consider employee availability and capacity</li>
+                    <li>Create optimal assignments automatically</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setAutoAssignDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleAutoAssign} 
+                disabled={autoAssigning || !selectedAutoAssignProjectId}
+                className="bg-yellow-600 hover:bg-yellow-700"
+              >
+                <Zap className="mr-2 h-4 w-4" />
+                {autoAssigning ? "Auto Assigning..." : "Run Auto-Assignment"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Global Auto Assignment Dialog */}
+        <Dialog open={globalAutoAssignDialogOpen} onOpenChange={setGlobalAutoAssignDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Global Auto-Assignment</DialogTitle>
+              <DialogDescription>
+                Optimize employee assignments across ALL active projects simultaneously using advanced compatibility scoring.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              <div className="space-y-4">
+                <div className="p-4 bg-blue-50 rounded-lg">
+                  <h4 className="font-semibold text-blue-900 mb-2">Enhanced Algorithm Features:</h4>
+                  <div className="space-y-2 text-sm text-blue-700">
+                    <div className="flex items-start gap-2">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full mt-1.5 flex-shrink-0"></div>
+                      <span><strong>Skill Coverage:</strong> How many required skills the employee has</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full mt-1.5 flex-shrink-0"></div>
+                      <span><strong>Skill Quality:</strong> Employee proficiency vs. requirements</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full mt-1.5 flex-shrink-0"></div>
+                      <span><strong>Skill Utilization:</strong> How many of their skills are used</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full mt-1.5 flex-shrink-0"></div>
+                      <span><strong>Global Optimization:</strong> Best overall project-employee matches</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  <p><strong>Note:</strong> This will only assign employees to projects where they are not already assigned and will respect capacity limits.</p>
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setGlobalAutoAssignDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleGlobalAutoAssign} 
+                disabled={globalAutoAssigning}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                <Globe className="mr-2 h-4 w-4" />
+                {globalAutoAssigning ? "Optimizing..." : "Run Global Auto-Assignment"}
               </Button>
             </DialogFooter>
           </DialogContent>

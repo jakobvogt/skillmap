@@ -29,18 +29,26 @@ class GlobalAutoAssignmentServiceImpl(
 ) : GlobalAutoAssignmentService {
 
     override fun globalAutoAssignEmployees(): List<ProjectAssignmentDto> {
-        // Get all active projects that need assignments
+        // Get all active projects that need assignments (only PLANNED and IN_PROGRESS)
         val activeProjects = projectRepository.findAll()
             .filter { it.status == "PLANNED" || it.status == "IN_PROGRESS" }
         
+        println("Global auto-assignment: Found ${activeProjects.size} active projects (PLANNED/IN_PROGRESS)")
+        activeProjects.forEach { project ->
+            println("- Project: ${project.name} (${project.status})")
+        }
+        
         // Get all employees
         val allEmployees = employeeRepository.findAll()
+        println("Global auto-assignment: Found ${allEmployees.size} employees")
         
         // Calculate compatibility matrix
         val compatibilityMatrix = calculateCompatibilityMatrix(activeProjects, allEmployees)
+        println("Global auto-assignment: Calculated ${compatibilityMatrix.size} compatibility scores")
         
         // Find optimal assignments using greedy approach based on compatibility
         val assignments = findOptimalAssignments(compatibilityMatrix, activeProjects, allEmployees)
+        println("Global auto-assignment: Created ${assignments.size} assignments")
         
         return assignments
     }
