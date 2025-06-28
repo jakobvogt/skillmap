@@ -20,6 +20,7 @@ interface ProjectAssignmentService {
     fun createAssignment(assignmentCreateDto: ProjectAssignmentCreateDto): ProjectAssignmentDto
     fun updateAssignment(id: Long, assignmentUpdateDto: ProjectAssignmentUpdateDto): ProjectAssignmentDto
     fun deleteAssignment(id: Long)
+    fun deleteAllAssignments()
     fun getCurrentAssignmentsForEmployee(employeeId: Long, date: LocalDate = LocalDate.now()): List<ProjectAssignmentDto>
     fun getTotalAllocationForEmployee(employeeId: Long, date: LocalDate = LocalDate.now()): Int
     fun getActiveAssignments(date: LocalDate = LocalDate.now()): List<ProjectAssignmentDto>
@@ -99,6 +100,10 @@ class ProjectAssignmentServiceImpl(
             throw EntityNotFoundException("Assignment not found with id: $id")
         }
         projectAssignmentRepository.deleteById(id)
+    }
+
+    override fun deleteAllAssignments() {
+        projectAssignmentRepository.deleteAll()
     }
 
     override fun getCurrentAssignmentsForEmployee(employeeId: Long, date: LocalDate): List<ProjectAssignmentDto> {

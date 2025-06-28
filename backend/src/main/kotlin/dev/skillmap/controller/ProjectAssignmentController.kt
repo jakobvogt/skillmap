@@ -90,4 +90,10 @@ class ProjectAssignmentController(
         val assignments = globalAutoAssignmentService.globalAutoAssignEmployees()
         return ResponseEntity.status(HttpStatus.CREATED).body(assignments)
     }
+
+    @DeleteMapping("/reset-all")
+    fun resetAllAssignments(): ResponseEntity<Void> {
+        projectAssignmentService.deleteAllAssignments()
+        return ResponseEntity.noContent().build()
+    }
 }
