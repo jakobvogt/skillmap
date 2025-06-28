@@ -3,8 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { ChevronLeft, Save, Plus, Trash } from "lucide-react";
-import { ProjectApi, ProjectCreateDto, ProjectUpdateDto, Skill, SkillApi, ProjectSkill, ProjectSkillApi, ProjectSkillCreateDto } from "@/api";
+import { ChevronLeft, Save, Plus, Trash, Users } from "lucide-react";
+import { ProjectApi, ProjectCreateDto, ProjectUpdateDto, Skill, SkillApi, ProjectSkill, ProjectSkillApi, ProjectSkillCreateDto, ProjectAssignmentApi } from "@/api";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
@@ -54,6 +54,7 @@ export function ProjectDetail() {
   const [minProficiency, setMinProficiency] = useState<string>("2");
   const [minimumFTE, setMinimumFTE] = useState<string>("1.0");
   const [fteThreshold, setFteThreshold] = useState<string>("0.4");
+  const [autoAssigning, setAutoAssigning] = useState(false);
 
   // Initialize form with react-hook-form
   const {
@@ -301,6 +302,43 @@ export function ProjectDetail() {
     }
   };
 
+  const handleAutoAssign = async () => {
+    if (isNewProject || !id) {
+      toast({
+        title: "Error",
+        description: "Please save the project first before auto-assigning employees",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setAutoAssigning(true);
+      const assignments = await ProjectAssignmentApi.autoAssign(parseInt(id));
+      
+      if (assignments.length === 0) {
+        toast({
+          title: "No Assignments",
+          description: "No eligible employees found for auto-assignment",
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: `Successfully created ${assignments.length} automatic assignment${assignments.length > 1 ? 's' : ''}`,
+        });
+      }
+    } catch (error) {
+      console.error("Error auto-assigning employees:", error);
+      toast({
+        title: "Error",
+        description: "Failed to auto-assign employees",
+        variant: "destructive",
+      });
+    } finally {
+      setAutoAssigning(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -417,7 +455,20 @@ export function ProjectDetail() {
         <TabsContent value="skills">
           <Card>
             <CardHeader>
-              <CardTitle>Required Skills</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>Required Skills</CardTitle>
+                {!isNewProject && (
+                  <Button 
+                    onClick={handleAutoAssign} 
+                    disabled={autoAssigning || projectSkills.length === 0}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <Users className="mr-2 h-4 w-4" />
+                    {autoAssigning ? "Auto Assigning..." : "Auto Assign"}
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
