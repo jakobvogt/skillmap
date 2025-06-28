@@ -3,6 +3,7 @@ package dev.skillmap.controller
 import dev.skillmap.dto.ProjectAssignmentCreateDto
 import dev.skillmap.dto.ProjectAssignmentDto
 import dev.skillmap.dto.ProjectAssignmentUpdateDto
+import dev.skillmap.service.AutoAssignmentService
 import dev.skillmap.service.ProjectAssignmentService
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -12,7 +13,10 @@ import java.time.LocalDate
 @RestController
 @RequestMapping("/api/project-assignments")
 @CrossOrigin(origins = ["http://localhost:3000"])
-class ProjectAssignmentController(private val projectAssignmentService: ProjectAssignmentService) {
+class ProjectAssignmentController(
+    private val projectAssignmentService: ProjectAssignmentService,
+    private val autoAssignmentService: AutoAssignmentService
+) {
 
     @GetMapping("/project/{projectId}")
     fun getAssignmentsByProjectId(@PathVariable projectId: Long): ResponseEntity<List<ProjectAssignmentDto>> {
@@ -71,5 +75,11 @@ class ProjectAssignmentController(private val projectAssignmentService: ProjectA
     ): ResponseEntity<Int> {
         val targetDate = date ?: LocalDate.now()
         return ResponseEntity.ok(projectAssignmentService.getTotalAllocationForEmployee(employeeId, targetDate))
+    }
+
+    @PostMapping("/auto-assign/project/{projectId}")
+    fun autoAssignEmployeesToProject(@PathVariable projectId: Long): ResponseEntity<List<ProjectAssignmentDto>> {
+        val assignments = autoAssignmentService.autoAssignEmployeesToProject(projectId)
+        return ResponseEntity.status(HttpStatus.CREATED).body(assignments)
     }
 }
