@@ -154,6 +154,8 @@ import {
       fetchApi(`/project-assignments/active${date ? `?date=${date}` : ''}`),
     autoAssign: (projectId: number): Promise<ProjectAssignment[]> =>
       fetchApi(`/project-assignments/auto-assign/project/${projectId}`, 'POST'),
+    globalAutoAssign: (): Promise<ProjectAssignment[]> =>
+      fetchApi(`/project-assignments/auto-assign/global`, 'POST'),
   };
   
   // Assignment Metrics API
