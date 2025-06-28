@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useImperativeHandle, forwardRef } from "react";
 import { AssignmentMetricsDto, AssignmentMetricsApi } from "@/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -10,14 +10,15 @@ interface AssignmentMetricsProps {
   className?: string;
 }
 
-export function AssignmentMetrics({ date, className }: AssignmentMetricsProps) {
+export interface AssignmentMetricsRef {
+  refresh: () => void;
+}
+
+export const AssignmentMetrics = forwardRef<AssignmentMetricsRef, AssignmentMetricsProps>(
+  ({ date, className }, ref) => {
   const [metrics, setMetrics] = useState<AssignmentMetricsDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetchMetrics();
-  }, [date]);
 
   const fetchMetrics = async () => {
     try {
@@ -32,6 +33,14 @@ export function AssignmentMetrics({ date, className }: AssignmentMetricsProps) {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchMetrics();
+  }, [date]);
+
+  useImperativeHandle(ref, () => ({
+    refresh: fetchMetrics,
+  }));
 
   const getHealthColor = (score?: number) => {
     if (!score && score !== 0) return "text-muted-foreground";
@@ -207,4 +216,4 @@ export function AssignmentMetrics({ date, className }: AssignmentMetricsProps) {
       </CardContent>
     </Card>
   );
-}
+});

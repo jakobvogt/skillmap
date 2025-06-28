@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { 
   ProjectAssignment, 
@@ -30,10 +30,13 @@ import { ProjectSkillTooltip } from "@/components/ProjectSkillTooltip";
 import { EmployeeSkillTooltip } from "@/components/EmployeeSkillTooltip";
 import { ProjectHealthIndicator, getHealthBackgroundColor, getHealthBorderColor } from "@/components/ProjectHealthIndicator";
 import { ProjectHealthTooltip } from "@/components/ProjectHealthTooltip";
-import { AssignmentMetrics } from "@/components/AssignmentMetrics";
+import { AssignmentMetrics, AssignmentMetricsRef } from "@/components/AssignmentMetrics";
 import { cn } from "@/lib/utils";
 
 export function AssignmentDashboard() {
+  // Ref for assignment metrics component
+  const assignmentMetricsRef = useRef<AssignmentMetricsRef>(null);
+  
   // State for data
   const [projects, setProjects] = useState<Project[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -333,6 +336,9 @@ export function AssignmentDashboard() {
         }));
       }
       
+      // Refresh assignment metrics
+      assignmentMetricsRef.current?.refresh();
+      
       toast({
         title: "Success",
         description: "Assignment deleted successfully",
@@ -406,6 +412,9 @@ export function AssignmentDashboard() {
           [parseInt(selectedEmployeeId)]: newAllocation
         }));
         
+        // Refresh assignment metrics
+        assignmentMetricsRef.current?.refresh();
+        
         toast({
           title: "Success",
           description: "Assignment updated successfully",
@@ -448,6 +457,9 @@ export function AssignmentDashboard() {
           ...prev,
           [parseInt(selectedEmployeeId)]: newAllocation
         }));
+        
+        // Refresh assignment metrics
+        assignmentMetricsRef.current?.refresh();
         
         toast({
           title: "Success",
@@ -610,7 +622,7 @@ export function AssignmentDashboard() {
         ) : (
           <div className="mt-6">
             {/* Assignment Metrics */}
-            <AssignmentMetrics date={selectedDate} className="mb-6" />
+            <AssignmentMetrics ref={assignmentMetricsRef} date={selectedDate} className="mb-6" />
 
             {/* Date Filter */}
             <Card className="mb-6">
