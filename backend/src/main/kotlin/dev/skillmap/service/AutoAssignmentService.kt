@@ -28,14 +28,16 @@ class AutoAssignmentServiceImpl(
 ) : AutoAssignmentService {
 
     override fun autoAssignEmployeesToProject(projectId: Long): List<ProjectAssignmentDto> {
-        val project = projectRepository.findById(projectId)
-            .orElseThrow { EntityNotFoundException("Project not found with id: $projectId") }
+        // Verify project exists
+        if (!projectRepository.existsById(projectId)) {
+            throw EntityNotFoundException("Project not found with id: $projectId")
+        }
 
         // Get project skills that need assignments
         val projectSkills = projectSkillRepository.findByProjectId(projectId)
         
         // Get employees not already assigned to this project
-        val availableEmployees = employeeRepository.findEmployeesNotAssignedToProject(projectId)
+        val availableEmployees = employeeRepository.findEmployeesNotAssignedToProject(projectId).toMutableList()
         
         val assignments = mutableListOf<ProjectAssignmentDto>()
         
@@ -73,7 +75,7 @@ class AutoAssignmentServiceImpl(
         return assignments
     }
     
-    private fun findBestEmployeeForSkill(projectSkill: ProjectSkill, availableEmployees: List<Employee>): Employee? {
+    private fun findBestEmployeeForSkill(projectSkill: ProjectSkill, availableEmployees: MutableList<Employee>): Employee? {
         val eligibleEmployees = availableEmployees.filter { employee ->
             isEmployeeEligible(employee, projectSkill)
         }
