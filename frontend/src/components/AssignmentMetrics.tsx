@@ -2,7 +2,7 @@ import { useState, useEffect, useImperativeHandle, forwardRef } from "react";
 import { AssignmentMetricsDto, AssignmentMetricsApi } from "@/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { TrendingUp, TrendingDown, Users, Building2, AlertTriangle } from "lucide-react";
+import { TrendingUp, Users, Building2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AssignmentMetricsProps {
